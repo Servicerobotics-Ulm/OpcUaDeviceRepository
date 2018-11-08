@@ -5,3 +5,6 @@ ADD_SUBDIRECTORY(Open62541CppWrapper)
 
 # specific OPC UA device servers
 ADD_SUBDIRECTORY(OPCUAJoystickDevice)
+ADD_SUBDIRECTORY(OPCUAProductionStation)
+ADD_SUBDIRECTORY(OPCUATrafficlightSW)
+ADD_SUBDIRECTORY(OPCUATrafficlight)

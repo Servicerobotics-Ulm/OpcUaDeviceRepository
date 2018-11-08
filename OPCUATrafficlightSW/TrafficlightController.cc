@@ -39,95 +39,72 @@
 //
 //===================================================================================
 
-#include "JoystickController.hh"
+#include "TrafficlightController.hh"
 
 namespace Smart {
 
-JoystickController::JoystickController(JoystickView *view)
+#define LED_RED_PIN 0
+#define LED_YELLOW_PIN 1
+#define LED_GREEN_PIN 2
+
+TrafficlightController::TrafficlightController(TrafficlightView *view)
 :	AbstractController(view)
 ,	server(this)
 ,	view(view)
-{  }
+{
+	view->getModel()->setDigitalOutput(LED_GREEN_PIN, false);
+	view->getModel()->setDigitalOutput(LED_YELLOW_PIN, false);
+	view->getModel()->setDigitalOutput(LED_RED_PIN, false);
+}
 
-JoystickController::~JoystickController()
-{  }
+TrafficlightController::~TrafficlightController()
+{
+	view->getModel()->setDigitalOutput(LED_GREEN_PIN, false);
+	view->getModel()->setDigitalOutput(LED_YELLOW_PIN, false);
+	view->getModel()->setDigitalOutput(LED_RED_PIN, false);
+}
 
-void JoystickController::update()
+void TrafficlightController::update()
 {
 	//Nothing to do in this example
 }
 
 //Getter methods for all OPCUA Variable nodes.
-OPCUA::StatusCode JoystickController::getXpos(int &xpos) const
+OPCUA::StatusCode TrafficlightController::getLED_RED(bool &lED_RED) const
 {
-	xpos = view->getModel()->getXpos();
+	lED_RED = view->getModel()->getDigitalOutput(LED_RED_PIN);
 	return OPCUA::StatusCode::ALL_OK;
 }
-OPCUA::StatusCode JoystickController::getYpos(int &ypos) const
+OPCUA::StatusCode TrafficlightController::getLED_YELLOW(bool &lED_YELLOW) const
 {
-	ypos = view->getModel()->getYpos();
+	lED_YELLOW = view->getModel()->getDigitalOutput(LED_YELLOW_PIN);
 	return OPCUA::StatusCode::ALL_OK;
 }
-OPCUA::StatusCode JoystickController::getX2pos(int &x2pos) const
+OPCUA::StatusCode TrafficlightController::getLED_GREEN(bool &lED_GREEN) const
 {
-	x2pos = view->getModel()->getX2pos();
-	return OPCUA::StatusCode::ALL_OK;
-}
-OPCUA::StatusCode JoystickController::getY2pos(int &y2pos) const
-{
-	y2pos = view->getModel()->getY2pos();
-	return OPCUA::StatusCode::ALL_OK;
-}
-OPCUA::StatusCode JoystickController::getBUTTONS(int &bUTTONS) const
-{
-	bUTTONS = view->getModel()->getButtons();
-	return OPCUA::StatusCode::ALL_OK;
-}
-OPCUA::StatusCode JoystickController::getBUTTON_0(bool &bUTTON_0) const
-{
-	bUTTON_0 = view->getModel()->getButton(0);
-	return OPCUA::StatusCode::ALL_OK;
-}
-OPCUA::StatusCode JoystickController::getBUTTON_1(bool &bUTTON_1) const
-{
-	bUTTON_1 = view->getModel()->getButton(1);
-	return OPCUA::StatusCode::ALL_OK;
-}
-OPCUA::StatusCode JoystickController::getBUTTON_2(bool &bUTTON_2) const
-{
-	bUTTON_2 = view->getModel()->getButton(2);
-	return OPCUA::StatusCode::ALL_OK;
-}
-OPCUA::StatusCode JoystickController::getBUTTON_3(bool &bUTTON_3) const
-{
-	bUTTON_3 = view->getModel()->getButton(3);
-	return OPCUA::StatusCode::ALL_OK;
-}
-OPCUA::StatusCode JoystickController::getBUTTON_4(bool &bUTTON_4) const
-{
-	bUTTON_4 = view->getModel()->getButton(4);
-	return OPCUA::StatusCode::ALL_OK;
-}
-OPCUA::StatusCode JoystickController::getBUTTON_5(bool &bUTTON_5) const
-{
-	bUTTON_5 = view->getModel()->getButton(5);
-	return OPCUA::StatusCode::ALL_OK;
-}
-OPCUA::StatusCode JoystickController::getBUTTON_6(bool &bUTTON_6) const
-{
-	bUTTON_6 = view->getModel()->getButton(6);
-	return OPCUA::StatusCode::ALL_OK;
-}
-OPCUA::StatusCode JoystickController::getBUTTON_7(bool &bUTTON_7) const
-{
-	bUTTON_7 = view->getModel()->getButton(7);
+	lED_GREEN = view->getModel()->getDigitalOutput(LED_GREEN_PIN);
 	return OPCUA::StatusCode::ALL_OK;
 }
 //Setter methods for OPCUA Entity nodes with write access.
+OPCUA::StatusCode TrafficlightController::setLED_RED(const bool &value)
+{
+	view->getModel()->setDigitalOutput(LED_RED_PIN, value);
+	return OPCUA::StatusCode::ALL_OK;
+}
+OPCUA::StatusCode TrafficlightController::setLED_YELLOW(const bool &value)
+{
+	view->getModel()->setDigitalOutput(LED_YELLOW_PIN, value);
+	return OPCUA::StatusCode::ALL_OK;
+}
+OPCUA::StatusCode TrafficlightController::setLED_GREEN(const bool &value)
+{
+	view->getModel()->setDigitalOutput(LED_GREEN_PIN, value);
+	return OPCUA::StatusCode::ALL_OK;
+}
 
 //Access methods for OPCUA Method nodes.
 
-int JoystickController::run()
+int TrafficlightController::run()
 {
 	// this call executes the OPCUA server (until it is killed)
 	return server.run();

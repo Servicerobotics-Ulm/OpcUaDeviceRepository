@@ -1,6 +1,6 @@
 //===================================================================================
 //
-//  Copyright (C) 2018 Alex Lotz, Vineeth Nagrath
+//  Copyright (C) 2018 Alex Lotz, Vineet Nagrath
 //
 //        lotz@hs-ulm.de
 //        nagrath@hs-ulm.de
@@ -38,6 +38,7 @@
 //  OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 //===================================================================================
+
 #include "LinuxJoystickDriverModel.hh"
 
 #include <chrono>

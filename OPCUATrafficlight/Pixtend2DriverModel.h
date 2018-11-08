@@ -39,67 +39,59 @@
 //
 //===================================================================================
 
-#ifndef LinuxJoystickDriverModel_H_
-#define LinuxJoystickDriverModel_H_
+#ifndef PIXTEND2DRIVERMODEL_H_
+#define PIXTEND2DRIVERMODEL_H_
 
-#include <MVC/AbstractModel.hh>
+#include "MVC/AbstractModel.hh"
 
-#include <set>
-// C++11
+extern "C" {
+#include <pixtend.h>
+}
+
+#include <chrono>
 #include <thread>
-#include <atomic>
 
 namespace Smart {
 
-class LinuxJoystickDriverModel : public AbstractModel {
+class Pixtend2DriverModel : public AbstractModel {
 private:
-	// internal thread handle
-	std::thread thr;
-	std::mutex thread_mutex;
-	std::atomic<bool> cancel_thread;
+	pixtOutV2S OutputData;			//PiXtend V2 -S- output data
+	pixtInV2S InputData;			//PiXtend V2 -S- input data
 
-	int Xpos;
-	int Ypos;
-	int X2pos;
-	int Y2pos;
-	int X3pos;
-	int Y3pos;
-	int Buttons;
-	bool Button[10];
-
-	int js_fd;
-
+	//Utility Method to set nth bit of an integer i to a boolean value v
 	void SetNBit(uint8_t &i, const uint8_t &n, const bool &v);
-
-protected:
-	// internal thread method
-	void on_execute();
-
+	//Writes OutputData and Reads InputData from Pixtend
+	void Sync();
 public:
-	/// default constructor
-	LinuxJoystickDriverModel(const std::string &devicePath="/dev/input/js0", const bool &startInternalThread=true);
-	/// default destructor
-	virtual ~LinuxJoystickDriverModel();
+	Pixtend2DriverModel(const bool &startInternalThread=false);
+	virtual ~Pixtend2DriverModel();
 
-	/// start the internally used thread
-	void startThread();
-	/// stop the internally used thread
-	void stopThread(const bool &waitTillStopped=true);
+	void setDigitalOutput(const uint8_t &number, const bool &value);
+	void setDigitalOutput(const uint8_t &value);
+	bool getDigitalOutput(const uint8_t &number);
+	uint8_t getDigitalOutput();
 
+	void setRelayOutput(const uint8_t &number, const bool &value);
+	void setRelayOutput(const uint8_t &value);
+	bool getRelayOutput(const uint8_t &number);
+	uint8_t getRelayOutput();
 
-	/**
-	 * JOYSTICK related methods from here
-	 */
-	int getXpos();
-	int getYpos();
-	int getX2pos();
-	int getY2pos();
-	int getX3pos();
-	int getY3pos();
-	int getButtons();
-	bool getButton(const uint8_t &buttonNumber);
+	bool getDigitalInput(const uint8_t &number);
+	uint8_t getDigitalInput();
+	int waitOnDigitalInput(const uint8_t &number, const bool &value, const std::chrono::steady_clock::duration &timeout=std::chrono::steady_clock::duration::zero());
+	int waitOnDigitalInput(const uint8_t &value, const std::chrono::steady_clock::duration &timeout=std::chrono::steady_clock::duration::zero());
+
+	void setGPIOCtrl(const uint8_t &number, const bool &value);
+	void setGPIOCtrl(const uint8_t &value);
+	bool getGPIOCtrl(const uint8_t &number);
+	uint8_t getGPIOCtrl();
+
+	void setGPIO(const uint8_t &number, const bool &value);
+	void setGPIO(const uint8_t &value);
+	bool getGPIO(const uint8_t &number);
+	uint8_t getGPIO();
 };
 
 } /* namespace Smart */
 
-#endif /* LinuxJoystickDriverModel_H_ */
+#endif /* PIXTEND2DRIVERMODEL_H_ */
