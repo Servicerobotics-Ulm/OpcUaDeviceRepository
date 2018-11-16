@@ -57,7 +57,6 @@ bool GenericClient::hasEndpoints(const std::string &address, const bool &display
                                                   &endpointArraySize, &endpointArray);
     if(retval != UA_STATUSCODE_GOOD) {
         UA_Array_delete(endpointArray, endpointArraySize, &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]);
-        UA_Client_delete(client);
         return false;
     }
     if(display==true) {
@@ -95,42 +94,46 @@ OPCUA::StatusCode GenericClient::connect(const std::string &address, const std::
 	// make sure the client is disconnected in any case
 	this->disconnect();
 #ifdef HAS_OPCUA
-    UA_ClientConfig config = UA_ClientConfig_default;
-    /* Set stateCallback */
-    config.inactivityCallback = inactivityCallback;
-    /* Perform a connectivity check every 2 seconds */
-    config.connectivityCheckInterval = 2000;
+	UA_ClientConfig config = UA_ClientConfig_default;
+	/* Set stateCallback */
+	config.inactivityCallback = inactivityCallback;
+	/* Perform a connectivity check every 2 seconds */
+	config.connectivityCheckInterval = 2000;
 
 	// create a new client
-    client = UA_Client_new(config);
+	client = UA_Client_new(config);
 
-    if( hasEndpoints(address) == true ) {
-        // Connect client to a server
-        UA_StatusCode retval = UA_Client_connect(client, address.c_str());
-        //retval = UA_Client_connect_username(client, "opc.tcp://localhost:4840", "user1", "password");
-        if(retval != UA_STATUSCODE_GOOD) {
-            UA_Client_delete(client);
-            client = 0;
-            return OPCUA::StatusCode::ERROR_COMMUNICATION;
-        }
+	if( hasEndpoints(address) == true ) 
+	{
+		// Connect client to a server
+		UA_StatusCode retval = UA_Client_connect(client, address.c_str());
+		//retval = UA_Client_connect_username(client, "opc.tcp://localhost:4840", "user1", "password");
+		if(retval != UA_STATUSCODE_GOOD) {
+			UA_Client_delete(client);
+			client = 0;
+			return OPCUA::StatusCode::ERROR_COMMUNICATION;
+		}
 
-        // find the root object using its browseName under the default objects folder
-        rootObjectId = this->findElement(objectName,
-		UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), // the the default objects folder as parent
-		UA_NODECLASS_OBJECT // look for object types only
-	);
-        if(rootObjectId.isNull()) {
-        	// if the object could no be found -> disconnect client and return wrong ID
-            this->disconnect();
-            return OPCUA::StatusCode::WRONG_ID;
-        }
+		// find the root object using its browseName under the default objects folder
+		rootObjectId = this->findElement(objectName,
+			UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), // the the default objects folder as parent
+			UA_NODECLASS_OBJECT // look for object types only
+		);
+		if(rootObjectId.isNull()) {
+			// if the object could no be found -> disconnect client and return wrong ID
+			this->disconnect();
+			return OPCUA::StatusCode::WRONG_ID;
+		}
 
-        // call the method that hopefully creates the client space in derived classes
-        if( this->createClientSpace(activateUpcalls) == true ) {
+		// call the method that hopefully creates the client space in derived classes
+		if( this->createClientSpace(activateUpcalls) == true ) {
 			// client is now connected
 			return OPCUA::StatusCode::ALL_OK;
-        }
-    }
+		}
+	} else {
+		UA_Client_delete(client);
+		client = 0;
+	}
 #endif // HAS_OPCUA
 	// something else went wrong
 	return OPCUA::StatusCode::ERROR_COMMUNICATION;
