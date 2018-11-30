@@ -46,6 +46,28 @@ handle_entity_update(UA_Client *client, UA_UInt32 subId, void *subContext,
 		it->second(subId, value);
 	}
 }
+
+
+static std::map<UA_Client*,std::function<void(const UA_UInt32&,UA_Variant*)>> on_read_registry;
+
+static
+void handle_on_read (UA_Client *client, void *userdata, UA_UInt32 requestId, UA_Variant *value)
+{
+	auto it = on_read_registry.find(client);
+	if(it != on_read_registry.end()) {
+		// call bound function
+		it->second(requestId, value);
+	}
+
+    /*more type distinctions possible*/
+    return;
+}
+static
+void attrWritten (UA_Client *client, void *userdata, UA_UInt32 requestId, UA_WriteResponse *response)
+{
+    /*assuming no data to be retrieved by writing attributes*/
+    UA_WriteResponse_deleteMembers(response);
+}
 #endif
 
 bool GenericClient::hasEndpoints(const std::string &address, const bool &display)
@@ -124,6 +146,8 @@ OPCUA::StatusCode GenericClient::connect(const std::string &address, const std::
 			this->disconnect();
 			return OPCUA::StatusCode::WRONG_ID;
 		}
+
+		on_read_registry[client] = std::bind(&GenericClient::handleReadRequest, this, std::placeholders::_1, std::placeholders::_2);
 
 		// call the method that hopefully creates the client space in derived classes
 		if( this->createClientSpace(activateUpcalls) == true ) {
@@ -468,6 +492,14 @@ bool GenericClient::addMethodNode(const std::string &methodBrowseName)
 #endif // HAS_OPCUA
 }
 
+void GenericClient::handleReadRequest(const UA_UInt32 &requestId, UA_Variant *data)
+{
+	std::unique_lock<std::mutex> readRequestLock(readRequestMutex);
+	readRequestValueRegistry[requestId] = *data;
+	readRequestSignal.notify_all();
+}
+
+
 OPCUA::StatusCode GenericClient::getVariableCurrentValue(const std::string &variableName, OPCUA::ValueType &value) const
 {
 	OPCUA::StatusCode result = OPCUA::StatusCode::ERROR_COMMUNICATION;
@@ -480,18 +512,36 @@ OPCUA::StatusCode GenericClient::getVariableCurrentValue(const std::string &vari
 	}
 
 	// Read attribute value
-	UA_Variant *variant = UA_Variant_new();
 	UA_NodeId uaId = entityId;
-	UA_StatusCode retval = UA_Client_readValueAttribute(client, uaId, variant);
+	UA_UInt32 requestId = 0;
+
+	// don't use the synchronous (i.e. direct) access to variables as it will conflict with the asynchronous API
+//	UA_StatusCode retval = UA_Client_readValueAttribute(client, uaId, variant);
+	UA_StatusCode retval = UA_Client_readValueAttribute_async(client, uaId, handle_on_read, NULL, &requestId);
 	if(retval == UA_STATUSCODE_GOOD) {
-		// copy variant value
-		value = (const UA_Variant*)variant;
+		while(true)
+		{
+			// grab the mutex
+			std::unique_lock<std::mutex> readRequestLock(readRequestMutex);
+			// wait for a read-request to finish
+			readRequestSignal.wait(readRequestLock);
+			// check if the registry has the result
+			auto it = readRequestValueRegistry.find(requestId);
+			// if request has been processed, then get the value and exit the while loop
+			if(it != readRequestValueRegistry.end()) {
+				// copy variant value
+				value = it->second;
+				// clean-up registry entry
+				readRequestValueRegistry.erase(it);
+				break;
+			}
+			// the required read request has not yet been processed -> wait for another signal
+		}
 		result = OPCUA::StatusCode::ALL_OK;
 	} else {
 		result = OPCUA::StatusCode::ERROR_COMMUNICATION;
 	}
 	UA_NodeId_deleteMembers(&uaId);
-	UA_Variant_delete(variant);
 #endif // HAS_OPCUA
 	return result;
 }
@@ -530,7 +580,8 @@ OPCUA::StatusCode GenericClient::setVariableValue(const std::string &variableNam
 	}
 
 	// write attribute value
-	UA_StatusCode retval = UA_Client_writeValueAttribute(client, entityId, value);
+	UA_UInt32 reqId;
+	UA_StatusCode retval = UA_Client_writeValueAttribute_async(client, entityId, value, attrWritten, NULL, &reqId);
 	if(retval == UA_STATUSCODE_GOOD) {
     	result = OPCUA::StatusCode::ALL_OK;
 	} else {
@@ -579,6 +630,10 @@ OPCUA::StatusCode GenericClient::callMethod(const std::string &methodName,
 		}
 		// cleanup output arguments memory
 		UA_Array_delete(output, outputSize, &UA_TYPES[UA_TYPES_VARIANT]);
+		// cleanup input arguments memory
+		for(size_t i=0; i<uaInputArguments.size(); ++i) {
+			UA_Variant_deleteMembers(&uaInputArguments[i]);
+		}
 		// return SUCCESS
 		return OPCUA::StatusCode::ALL_OK;
 	}

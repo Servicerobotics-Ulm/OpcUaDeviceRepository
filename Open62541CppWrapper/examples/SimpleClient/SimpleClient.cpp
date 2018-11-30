@@ -9,6 +9,11 @@
 #include <iostream>
 #include "OpcUaGenericClient.hh"
 
+#include <thread>
+#include <mutex>
+
+std::mutex mutex;
+
 class MyClient: public OPCUA::GenericClient {
 protected:
 	virtual void handleVariableValueUpdate(const std::string &entityName, const OPCUA::ValueType &value) override
@@ -25,6 +30,14 @@ public:
 	MyClient() { }
 	virtual ~MyClient() { }
 };
+
+void run(MyClient *client) {
+	OPCUA::StatusCode status;
+	do {
+		std::cout << "run_once()..." <<std::endl;
+		status = client->run_once();
+	} while(status == OPCUA::StatusCode::ALL_OK);
+}
 
 int main(int argc, char* argv[]) 
 {
@@ -51,10 +64,17 @@ int main(int argc, char* argv[])
 		std::cout << "output" << i << ": " << outputArguments[i] << std::endl;
 	}
 
-	// run client's internal upcall infrastructure
-	OPCUA::StatusCode status;
-	do {
-		status = client.run_once();
-	} while(status == OPCUA::StatusCode::ALL_OK);
+	// execute client's upcall interface (i.e. its method "run_once()") in a separate thread (just for testing, can also be executed in this main)
+	std::thread th(run, &client);
+
+	while(true) {
+		OPCUA::ValueType v;
+		// actively poll for variable values
+		client.getVariableCurrentValue("MyVar", v);
+		std::cout << "polling MyVar: " << v << std::endl;
+		std::this_thread::sleep_for (std::chrono::milliseconds(50));
+	}
+
+	th.join();
 	return 0;
 }

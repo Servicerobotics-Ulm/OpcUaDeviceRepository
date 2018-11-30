@@ -58,6 +58,7 @@ ProductionStationController::ProductionStationController(ProductionStationView *
 {
 	view->getModel()->setDigitalOutput(0);
 	view->getModel()->setDigitalOutput(BOX_SENSOR_CUTOFF_PIN, true);   // Setting ON the proximity sensor
+	view->getModel()->setDigitalOutput(LED_GREEN_PIN, true);
 }
 
 ProductionStationController::~ProductionStationController()
@@ -122,7 +123,6 @@ OPCUA::StatusCode ProductionStationController::callLoadbox(const int &Timeout,st
 	getIsBoxPresent(isBoxPresent);
 	if(isBoxPresent == false) 
 	{
-		view->getModel()->setDigitalOutput(LED_GREEN_PIN, true);
 		// setting up GPIO Mode
 		view->getModel()->setGPIOCtrl(MOTOR_CLOCKWISE_GPIO_PIN, true);
 		view->getModel()->setGPIOCtrl(MOTOR_ANTICLOCKWISE_GPIO_PIN, true);
@@ -142,7 +142,6 @@ OPCUA::StatusCode ProductionStationController::callLoadbox(const int &Timeout,st
 		}
 	}
 
-	view->getModel()->setDigitalOutput(LED_GREEN_PIN, false);
 	view->getModel()->setDigitalOutput(LED_YELLOW_PIN, false);
 	printf("Loadbox()  OUT\n");
 	Result = status;
@@ -151,13 +150,13 @@ OPCUA::StatusCode ProductionStationController::callLoadbox(const int &Timeout,st
 OPCUA::StatusCode ProductionStationController::callStart_unloading(const int &XtimeoutX,std::string &Result)
 {
 	printf("Start_unloadbox()  IN\n");
-	view->getModel()->setDigitalOutput(LED_YELLOW_PIN, true);
+	view->getModel()->setDigitalOutput(LED_RED_PIN, true);
 	std::string status = "ERROR";
 	bool isBoxPresent = false;
 	getIsBoxPresent(isBoxPresent);
 	if(isBoxPresent == true) 
 	{
-		view->getModel()->setDigitalOutput(LED_GREEN_PIN, true);
+		view->getModel()->setDigitalOutput(LED_YELLOW_PIN, true);
 		// setting up GPIO Mode
 		view->getModel()->setGPIOCtrl(MOTOR_CLOCKWISE_GPIO_PIN, true);
 		view->getModel()->setGPIOCtrl(MOTOR_ANTICLOCKWISE_GPIO_PIN, true);
@@ -167,14 +166,14 @@ OPCUA::StatusCode ProductionStationController::callStart_unloading(const int &Xt
 		status = "UNLOADING_STARTED";
 	}
 	printf("Start_unloadbox()  OUT\n");
-	view->getModel()->setDigitalOutput(LED_YELLOW_PIN, false);
+	view->getModel()->setDigitalOutput(LED_RED_PIN, false);
 	Result = status;
 	return OPCUA::StatusCode::ALL_OK;
 }
 OPCUA::StatusCode ProductionStationController::callStop_unloading(const int &XtimeoutX,std::string &Result)
 {
 	printf("Stop_unloadbox()  IN\n");
-	view->getModel()->setDigitalOutput(LED_YELLOW_PIN, true);
+	view->getModel()->setDigitalOutput(LED_RED_PIN, true);
 	std::string status = "ERROR";
 	// setting up GPIO Mode
 	view->getModel()->setGPIOCtrl(MOTOR_CLOCKWISE_GPIO_PIN, true);
@@ -184,7 +183,7 @@ OPCUA::StatusCode ProductionStationController::callStop_unloading(const int &Xti
 	view->getModel()->setGPIO(MOTOR_ANTICLOCKWISE_GPIO_PIN, false);
 	status = "UNLOADING_STOPPED";
 	printf("Stop_unloadbox()  OUT\n");
-	view->getModel()->setDigitalOutput(LED_GREEN_PIN, false);
+	view->getModel()->setDigitalOutput(LED_RED_PIN, false);
 	view->getModel()->setDigitalOutput(LED_YELLOW_PIN, false);
 	Result = status;
 	return OPCUA::StatusCode::ALL_OK;

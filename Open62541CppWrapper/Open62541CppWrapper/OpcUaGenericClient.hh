@@ -62,6 +62,13 @@ private:
 	// entity update value registry (key=EntityName, value=UpdateValue)
 	std::map<std::string, OPCUA::ValueType> entityUpdateValueRegistry;
 
+	// asynchronous readRequest mutex
+	mutable std::mutex readRequestMutex;
+	// asynchronous readRequest condition variable
+	mutable std::condition_variable readRequestSignal;
+	// asynchronous readRequest value registry
+	mutable std::map<UA_UInt32, OPCUA::ValueType> readRequestValueRegistry;
+
 	/// simple discovery service checks if the given address has any endpoints (not really needed)
 	bool hasEndpoints(const std::string &address, const bool &display=true);
 
@@ -122,6 +129,9 @@ private:
 
 	/// internal upcall called from within the internal OPC UA upcall method, it propagates the call to the 
 	void handleEntity(const UA_UInt32 &subscriptionId, UA_DataValue *data);
+
+	/// internal upcall to handle asynchronous read-requests
+	void handleReadRequest(const UA_UInt32 &requestId, UA_Variant *data);
 #endif
 
 protected:
