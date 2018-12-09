@@ -133,12 +133,12 @@ void LinuxJoystickDriverModel::on_execute()
 				{
 					switch(e.number)
 					{
-						case 0:	{	Xpos = 	e.value;	break;}
-						case 1:	{	Ypos = 	e.value;	break;}
-						case 2:	{	X2pos = e.value;	break;}
-						case 3:	{	Y2pos = e.value;	break;}
-						case 4:	{	X3pos = e.value;	break;}
-						case 5:	{	Y3pos = e.value;	break;}
+						case 0:	{	Xpos = 	e.value * -1;	break;}
+						case 1:	{	Ypos = 	e.value * -1;	break;}
+						case 2:	{	X2pos = e.value * -1;	break;}
+						case 3:	{	Y2pos = e.value * -1;	break;}
+						case 4:	{	X3pos = e.value * -1;	break;}
+						case 5:	{	Y3pos = e.value * -1;	break;}
 					}
 					break;
 				}

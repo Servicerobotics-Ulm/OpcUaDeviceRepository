@@ -641,7 +641,7 @@ OPCUA::StatusCode GenericClient::callMethod(const std::string &methodName,
 	return OPCUA::StatusCode::ERROR_COMMUNICATION;
 }
 
-OPCUA::StatusCode GenericClient::run_once(const unsigned short &timeoutMS)
+OPCUA::StatusCode GenericClient::run_once(const std::string &address, const unsigned short &timeoutMS)
 {
 #ifdef HAS_OPCUA
 	if(client == 0) {
@@ -651,9 +651,10 @@ OPCUA::StatusCode GenericClient::run_once(const unsigned short &timeoutMS)
 	/* if already connected, this will return GOOD and do nothing */
 	/* if the connection is closed/errored, the connection will be reset and then reconnected */
 	/* Alternatively you can also use UA_Client_getState to get the current state */
-	UA_ClientState clientState = UA_Client_getState(client);
-	if(clientState != UA_CLIENTSTATE_SESSION) {
-		std::cerr << "client-state != UA_CLIENTSTATE_SESSION: " << clientState << std::endl;
+	//UA_ClientState clientState = UA_Client_getState(client);
+	UA_StatusCode status = UA_Client_connect(client, address.c_str());
+	if(status != UA_STATUSCODE_GOOD) {
+		std::cerr << "client connection status != UA_STATUSCODE_GOOD: " << status << std::endl;
 		/* The connect may timeout after 1 second (see above) or it may fail immediately on network errors */
 		/* E.g. name resolution errors or unreachable network. Thus there should be a small sleep here */
 		UA_sleep_ms(timeoutMS);

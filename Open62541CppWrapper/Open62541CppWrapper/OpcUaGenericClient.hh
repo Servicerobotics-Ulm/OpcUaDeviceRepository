@@ -221,14 +221,18 @@ public:
 	/** execute client's async interface
 	 *
 	 *  This method is supposed to be called repeatedly (i.e. in a loop) from within a new thread that
-	 *  is supposed to be implemented in derived classes.
+	 *  is supposed to be implemented in derived classes. Internally this method checks if client
+	 *  is still connected and if so, tries to maintain a connection session. As long as the session
+	 *  is valid, the method UA_Client_run_iterate is called that operates the client's asynchronous
+	 *  API.
 	 *
+	 *	@param address the OPC UA Server URL
 	 *  @param timeoutMS an optional argument for the timeout time (in milliseconds)
 	 *  @return the current status of the client
 	 *    - OPCUA::StatusCode::ALL_OK if everything is OK or
 	 *    - OPCUA::StatusCode::DISCONNECTED if the client-connection is lost
 	 */
-	OPCUA::StatusCode run_once(const unsigned short &timeoutMS=500);
+	OPCUA::StatusCode run_once(const std::string &address = "opc.tcp://localhost:4840", const unsigned short &timeoutMS=500);
 
 
 	/** Generic Getter function returning the current value of an OPC UA Variable
