@@ -675,8 +675,12 @@ OPCUA::StatusCode GenericClient::run_once() const
 		std::this_thread::sleep_for(minSubscriptionInterval);
 		return OPCUA::StatusCode::DISCONNECTED;
 	}
-	// run client's callback interface non-blocking
-	UA_Client_run_iterate(client, 0);
+
+	// iterate client's async interface at least once for every subscription
+	for(size_t i=0; i < subscriptionsRegistry.size(); ++i) {
+		// run client's callback interface non-blocking
+		UA_Client_run_iterate(client, 0);
+	}
 
 	// release the lock BEFORE! the sleep is called (this enables using synchronous calls more frequently than the subscription interval)
 	lock.unlock();
