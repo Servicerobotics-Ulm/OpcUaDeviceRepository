@@ -9,6 +9,7 @@
 #include <iostream>
 #include "OpcUaGenericClient.hh"
 
+#include <chrono>
 #include <thread>
 #include <mutex>
 
@@ -23,7 +24,7 @@ protected:
 
 	virtual bool createClientSpace(const bool activateUpcalls=true) override
 	{
-		unsigned int interval = 100; // ms
+		std::chrono::steady_clock::duration interval = std::chrono::milliseconds(100);
 		return addVariableNode("MyVar", activateUpcalls, interval);
 	}
 public:

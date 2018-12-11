@@ -38,6 +38,10 @@ private:
 	NodeId rootObjectId;
 #endif // HAS_OPCUA
 
+	// make the GenericServer non-copyable
+	GenericServer(const GenericServer&) = delete;
+	GenericServer& operator=(const GenericServer&) = delete;
+
 	/** this method is used by the Constructor to create the root object
 	 *
 	 *  This method wraps the code to create a default server object under the default

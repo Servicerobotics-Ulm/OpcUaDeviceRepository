@@ -23,6 +23,7 @@
 
 // C++11 interface
 #include <mutex>
+#include <chrono>
 #include <condition_variable>
 
 #ifdef HAS_OPCUA
@@ -44,6 +45,13 @@ private:
 	// the OPC UA Object ID (for the connected root object)
 	NodeId rootObjectId;
 
+	// the general client mutex (prevents from concurrent access of the internal UA Client, which is not thread safe by itself)
+	mutable std::recursive_mutex clientMutex;
+
+	// make the GenericClient non-copyable
+	GenericClient(const GenericClient&) = delete;
+	GenericClient& operator=(const GenericClient&) = delete;
+
 	/** the internal registry of all the used entities (i.e. typically OPC UA variables)
 	 *
 	 *  Please overload and implement the method createClientSpace() in derived classes
@@ -54,6 +62,7 @@ private:
 
 	/// internal registry to manage subscriptions (key=SubscriptionId, value=entityBrowseName)
 	std::map<UA_UInt32, std::string> subscriptionsRegistry;
+	std::chrono::steady_clock::duration minSubscriptionInterval;
 
 	// entityUpdate handling
 	mutable std::mutex entityUpdateMutex;
@@ -61,13 +70,6 @@ private:
 	std::map<std::string, std::condition_variable> entityUpdateSignalRegistry;
 	// entity update value registry (key=EntityName, value=UpdateValue)
 	std::map<std::string, OPCUA::ValueType> entityUpdateValueRegistry;
-
-	// asynchronous readRequest mutex
-	mutable std::mutex readRequestMutex;
-	// asynchronous readRequest condition variable
-	mutable std::condition_variable readRequestSignal;
-	// asynchronous readRequest value registry
-	mutable std::map<UA_UInt32, OPCUA::ValueType> readRequestValueRegistry;
 
 	/// simple discovery service checks if the given address has any endpoints (not really needed)
 	bool hasEndpoints(const std::string &address, const bool &display=true);
@@ -124,14 +126,11 @@ private:
 	UA_StatusCode unregisterNode(const NodeId &nodeId);
 
 	// these two helper methods should be used to implement the client async upcalls (not yet fully tested)
-	UA_StatusCode createSubscription(const std::string &entityBrowseName, const unsigned int samplingIntervalMS=100);
+	UA_StatusCode createSubscription(const std::string &entityBrowseName, const std::chrono::steady_clock::duration &subscriptionInterval = std::chrono::milliseconds(100) );
 	UA_StatusCode deleteSubscription(const std::string &entityBrowseName);
 
 	/// internal upcall called from within the internal OPC UA upcall method, it propagates the call to the 
 	void handleEntity(const UA_UInt32 &subscriptionId, UA_DataValue *data);
-
-	/// internal upcall to handle asynchronous read-requests
-	void handleReadRequest(const UA_UInt32 &requestId, UA_Variant *data);
 #endif
 
 protected:
@@ -146,12 +145,12 @@ protected:
 	 *
 	 *  @param variableBrowseName is the browse-name of the OPC UA variable within the server space
 	 *  @param activateUpdateUpcall optional attribute allows activation/deactivation of the upcall interface for data-updates
-	 *  @param samplingIntervalMS optional internal sampling interval for checking of the value-updates (default inteval is 100 ms)
+	 *  @param samplingInterval optional internal sampling interval for checking of the value-updates (default interval is 100 ms)
 	 *  @return true on SUCCESS or false on ERROR
 	 *
 	 *  @sa createClientSpace()
 	 */
-	bool addVariableNode(const std::string &variableBrowseName, const bool activateUpdateUpcall=true, const unsigned int samplingIntervalMS=100);
+	bool addVariableNode(const std::string &variableBrowseName, const bool activateUpdateUpcall=true, const std::chrono::steady_clock::duration &samplingInterval = std::chrono::milliseconds(100) );
 
 	/** this method creates a fast-access registry to an OPC UA method identified by its browse-name
 	 *
@@ -195,7 +194,7 @@ protected:
 	virtual void handleVariableValueUpdate(const std::string &variableBrowseName, const OPCUA::ValueType &value);
 
 public:
-	GenericClient();
+	GenericClient(const std::chrono::steady_clock::duration &minSubscriptionInterval = std::chrono::milliseconds(100));
 	virtual ~GenericClient();
 
 	/** this method instantiates and connects the internal OPC UA Client
@@ -221,18 +220,13 @@ public:
 	/** execute client's async interface
 	 *
 	 *  This method is supposed to be called repeatedly (i.e. in a loop) from within a new thread that
-	 *  is supposed to be implemented in derived classes. Internally this method checks if client
-	 *  is still connected and if so, tries to maintain a connection session. As long as the session
-	 *  is valid, the method UA_Client_run_iterate is called that operates the client's asynchronous
-	 *  API.
+	 *  is supposed to be implemented in derived classes.
 	 *
-	 *	@param address the OPC UA Server URL
-	 *  @param timeoutMS an optional argument for the timeout time (in milliseconds)
 	 *  @return the current status of the client
 	 *    - OPCUA::StatusCode::ALL_OK if everything is OK or
 	 *    - OPCUA::StatusCode::DISCONNECTED if the client-connection is lost
 	 */
-	OPCUA::StatusCode run_once(const std::string &address = "opc.tcp://localhost:4840", const unsigned short &timeoutMS=500);
+	OPCUA::StatusCode run_once() const;
 
 
 	/** Generic Getter function returning the current value of an OPC UA Variable

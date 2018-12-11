@@ -20,6 +20,9 @@
 #include <sstream>
 #include <functional>
 
+#include <chrono>
+#include <thread>
+
 namespace OPCUA {
 
 #ifdef HAS_OPCUA
@@ -46,32 +49,13 @@ handle_entity_update(UA_Client *client, UA_UInt32 subId, void *subContext,
 		it->second(subId, value);
 	}
 }
-
-
-static std::map<UA_Client*,std::function<void(const UA_UInt32&,UA_Variant*)>> on_read_registry;
-
-static
-void handle_on_read (UA_Client *client, void *userdata, UA_UInt32 requestId, UA_Variant *value)
-{
-	auto it = on_read_registry.find(client);
-	if(it != on_read_registry.end()) {
-		// call bound function
-		it->second(requestId, value);
-	}
-
-    /*more type distinctions possible*/
-    return;
-}
-static
-void attrWritten (UA_Client *client, void *userdata, UA_UInt32 requestId, UA_WriteResponse *response)
-{
-    /*assuming no data to be retrieved by writing attributes*/
-    UA_WriteResponse_deleteMembers(response);
-}
 #endif
 
 bool GenericClient::hasEndpoints(const std::string &address, const bool &display)
 {
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
     // Listing endpoints
     UA_EndpointDescription* endpointArray = NULL;
     size_t endpointArraySize = 0;
@@ -94,7 +78,8 @@ bool GenericClient::hasEndpoints(const std::string &address, const bool &display
 }
 #endif // HAS_OPCUA
 
-GenericClient::GenericClient()
+GenericClient::GenericClient(const std::chrono::steady_clock::duration &minSubscriptionInterval)
+:	minSubscriptionInterval(minSubscriptionInterval)
 {
 #ifdef HAS_OPCUA
 	// set client to initially to zero (the real initialization happens during connection)
@@ -115,7 +100,12 @@ OPCUA::StatusCode GenericClient::connect(const std::string &address, const std::
 {
 	// make sure the client is disconnected in any case
 	this->disconnect();
+
 #ifdef HAS_OPCUA
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
+	// create default client configuration
 	UA_ClientConfig config = UA_ClientConfig_default;
 	/* Set stateCallback */
 	config.inactivityCallback = inactivityCallback;
@@ -147,8 +137,6 @@ OPCUA::StatusCode GenericClient::connect(const std::string &address, const std::
 			return OPCUA::StatusCode::WRONG_ID;
 		}
 
-		on_read_registry[client] = std::bind(&GenericClient::handleReadRequest, this, std::placeholders::_1, std::placeholders::_2);
-
 		// call the method that hopefully creates the client space in derived classes
 		if( this->createClientSpace(activateUpcalls) == true ) {
 			// client is now connected
@@ -172,6 +160,9 @@ bool GenericClient::createClientSpace(const bool activateUpcalls)
 OPCUA::StatusCode GenericClient::disconnect()
 {
 #ifdef HAS_OPCUA
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
 	// disconnect and clean-up client
 	if(client != 0) {
 	    UA_Client_disconnect(client);
@@ -190,6 +181,9 @@ OPCUA::StatusCode GenericClient::disconnect()
  */
 NodeId GenericClient::browseObjectPath(const std::string &objectPath, const unsigned short namespaceIndex) const
 {
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
     // create new node id
     NodeId nodeId;
 
@@ -253,6 +247,9 @@ NodeId GenericClient::browseObjectPath(const std::string &objectPath, const unsi
 
 NodeId GenericClient::findElement(const std::string &elementBrowseName, const NodeId &parentNodeId, const UA_NodeClass &filterNodeType) const
 {
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
 	// new id
 	NodeId resultId;
 
@@ -300,6 +297,9 @@ NodeId GenericClient::findElement(const std::string &elementBrowseName, const No
 
 UA_StatusCode GenericClient::registerNode(const NodeId &nodeId)
 {
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
     UA_RegisterNodesRequest request;
     UA_RegisterNodesRequest_init(&request);
 
@@ -328,6 +328,9 @@ UA_StatusCode GenericClient::registerNode(const NodeId &nodeId)
 
 UA_StatusCode GenericClient::unregisterNode(const NodeId &nodeId)
 {
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
     UA_UnregisterNodesRequest reqUn;
     UA_UnregisterNodesRequest_init(&reqUn);
 
@@ -347,6 +350,9 @@ UA_StatusCode GenericClient::unregisterNode(const NodeId &nodeId)
 
 OPCUA::StatusCode GenericClient::checkAndGetEntityId(const std::string &entityBrowseName, NodeId &entityId, const UA_NodeClass &filterNodeType) const
 {
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
 	// check if client is connected, if not, return immediately
 	if(client == 0) {
 		return OPCUA::StatusCode::DISCONNECTED;
@@ -370,18 +376,25 @@ OPCUA::StatusCode GenericClient::checkAndGetEntityId(const std::string &entityBr
 }
 
 
-UA_StatusCode GenericClient::createSubscription(const std::string &entityBrowseName, const unsigned int samplingIntervalMS)
+UA_StatusCode GenericClient::createSubscription(const std::string &entityBrowseName, const std::chrono::steady_clock::duration &subscriptionInterval)
 {
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
 	// try getting the entity ID
 	NodeId entityId;
 	OPCUA::StatusCode result = checkAndGetEntityId(entityBrowseName, entityId);
 	if(result != OPCUA::StatusCode::ALL_OK) {
 		return UA_STATUSCODE_BADSUBSCRIPTIONIDINVALID;
 	}
+
+	if(subscriptionInterval < minSubscriptionInterval) {
+		minSubscriptionInterval = subscriptionInterval;
+	}
 #ifdef UA_ENABLE_SUBSCRIPTIONS
     /* Create a subscription */
     UA_CreateSubscriptionRequest request = UA_CreateSubscriptionRequest_default();
-    request.requestedPublishingInterval = samplingIntervalMS;
+    request.requestedPublishingInterval = std::chrono::duration_cast<std::chrono::milliseconds>(subscriptionInterval).count();
     UA_CreateSubscriptionResponse response = UA_Client_Subscriptions_create(client, request,
                                                                             NULL, NULL, NULL);
 
@@ -398,7 +411,7 @@ UA_StatusCode GenericClient::createSubscription(const std::string &entityBrowseN
 
     // create a monitored item
     UA_MonitoredItemCreateRequest monRequest = UA_MonitoredItemCreateRequest_default(entityId);
-    monRequest.requestedParameters.samplingInterval = samplingIntervalMS;
+    monRequest.requestedParameters.samplingInterval = request.requestedPublishingInterval;
     UA_MonitoredItemCreateResult monResponse =
     UA_Client_MonitoredItems_createDataChange(client, response.subscriptionId,
                                               UA_TIMESTAMPSTORETURN_BOTH,
@@ -412,6 +425,9 @@ UA_StatusCode GenericClient::createSubscription(const std::string &entityBrowseN
 
 UA_StatusCode GenericClient::deleteSubscription(const std::string &entityBrowseName)
 {
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
 #ifdef UA_ENABLE_SUBSCRIPTIONS
 	for(auto it=subscriptionsRegistry.begin(); it!=subscriptionsRegistry.end(); it++) {
 		// search for the entity to unsubscribe
@@ -426,6 +442,9 @@ UA_StatusCode GenericClient::deleteSubscription(const std::string &entityBrowseN
 
 void GenericClient::handleEntity(const UA_UInt32 &subscriptionId, UA_DataValue *data)
 {
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
 	// extract the actual value
 	OPCUA::ValueType value(data->value);
 
@@ -452,9 +471,12 @@ void GenericClient::handleVariableValueUpdate(const std::string &variableBrowseN
 	// no-op
 }
 
-bool GenericClient::addVariableNode(const std::string &entityBrowseName, const bool activateUpdateUpcall, const unsigned int samplingIntervalMS)
+bool GenericClient::addVariableNode(const std::string &entityBrowseName, const bool activateUpdateUpcall, const std::chrono::steady_clock::duration &samplingInterval)
 {
 #ifdef HAS_OPCUA
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
 	// try getting the entity ID
 	NodeId entityId;
 	OPCUA::StatusCode result = checkAndGetEntityId(entityBrowseName, entityId);
@@ -467,7 +489,7 @@ bool GenericClient::addVariableNode(const std::string &entityBrowseName, const b
 	
 	if(activateUpdateUpcall == true) {
 		// create subscription for the current entity
-		this->createSubscription(entityBrowseName, samplingIntervalMS);
+		this->createSubscription(entityBrowseName, samplingInterval);
 	}
 	return true;
 #else
@@ -478,6 +500,9 @@ bool GenericClient::addVariableNode(const std::string &entityBrowseName, const b
 bool GenericClient::addMethodNode(const std::string &methodBrowseName)
 {
 #ifdef HAS_OPCUA
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
 	NodeId methodId;
 	OPCUA::StatusCode result = checkAndGetEntityId(methodBrowseName, methodId, UA_NODECLASS_METHOD);
 	if(result != OPCUA::StatusCode::ALL_OK) {
@@ -492,18 +517,13 @@ bool GenericClient::addMethodNode(const std::string &methodBrowseName)
 #endif // HAS_OPCUA
 }
 
-void GenericClient::handleReadRequest(const UA_UInt32 &requestId, UA_Variant *data)
-{
-	std::unique_lock<std::mutex> readRequestLock(readRequestMutex);
-	readRequestValueRegistry[requestId] = *data;
-	readRequestSignal.notify_all();
-}
-
-
 OPCUA::StatusCode GenericClient::getVariableCurrentValue(const std::string &variableName, OPCUA::ValueType &value) const
 {
 	OPCUA::StatusCode result = OPCUA::StatusCode::ERROR_COMMUNICATION;
 #ifdef HAS_OPCUA
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
 	// check if the entity ID can be found
 	NodeId entityId;
 	result = checkAndGetEntityId(variableName, entityId);
@@ -512,42 +532,25 @@ OPCUA::StatusCode GenericClient::getVariableCurrentValue(const std::string &vari
 	}
 
 	// Read attribute value
+	UA_Variant *variant = UA_Variant_new();
 	UA_NodeId uaId = entityId;
-	UA_UInt32 requestId = 0;
-
-	// don't use the synchronous (i.e. direct) access to variables as it will conflict with the asynchronous API
-//	UA_StatusCode retval = UA_Client_readValueAttribute(client, uaId, variant);
-	UA_StatusCode retval = UA_Client_readValueAttribute_async(client, uaId, handle_on_read, NULL, &requestId);
+	UA_StatusCode retval = UA_Client_readValueAttribute(client, uaId, variant);
 	if(retval == UA_STATUSCODE_GOOD) {
-		while(true)
-		{
-			// grab the mutex
-			std::unique_lock<std::mutex> readRequestLock(readRequestMutex);
-			// wait for a read-request to finish
-			readRequestSignal.wait(readRequestLock);
-			// check if the registry has the result
-			auto it = readRequestValueRegistry.find(requestId);
-			// if request has been processed, then get the value and exit the while loop
-			if(it != readRequestValueRegistry.end()) {
-				// copy variant value
-				value = it->second;
-				// clean-up registry entry
-				readRequestValueRegistry.erase(it);
-				break;
-			}
-			// the required read request has not yet been processed -> wait for another signal
-		}
+		// copy variant value
+		value = (const UA_Variant*)variant;
 		result = OPCUA::StatusCode::ALL_OK;
 	} else {
 		result = OPCUA::StatusCode::ERROR_COMMUNICATION;
 	}
 	UA_NodeId_deleteMembers(&uaId);
+	UA_Variant_delete(variant);
 #endif // HAS_OPCUA
 	return result;
 }
 
 OPCUA::StatusCode GenericClient::getVariableNextValue(const std::string &variableName, OPCUA::ValueType &value)
 {
+	// don't lock the clientMutex here as this would lead to a deadlock with the entityUpdateSignalRegistry (see below)
 	OPCUA::StatusCode result = OPCUA::StatusCode::ERROR_COMMUNICATION;
 #ifdef HAS_OPCUA
 	// check if the entity ID can be found
@@ -572,6 +575,9 @@ OPCUA::StatusCode GenericClient::setVariableValue(const std::string &variableNam
 {
 	OPCUA::StatusCode result = OPCUA::StatusCode::ERROR_COMMUNICATION;
 #ifdef HAS_OPCUA
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
 	// check if the entity ID can be found
 	NodeId entityId;
 	result = checkAndGetEntityId(variableName, entityId);
@@ -580,8 +586,7 @@ OPCUA::StatusCode GenericClient::setVariableValue(const std::string &variableNam
 	}
 
 	// write attribute value
-	UA_UInt32 reqId;
-	UA_StatusCode retval = UA_Client_writeValueAttribute_async(client, entityId, value, attrWritten, NULL, &reqId);
+	UA_StatusCode retval = UA_Client_writeValueAttribute(client, entityId, value);
 	if(retval == UA_STATUSCODE_GOOD) {
     	result = OPCUA::StatusCode::ALL_OK;
 	} else {
@@ -597,6 +602,9 @@ OPCUA::StatusCode GenericClient::callMethod(const std::string &methodName,
                         std::vector<OPCUA::ValueType> &outputArguments)
 {
 #ifdef UA_ENABLE_METHODCALLS
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
 	// check if the method ID can be found
 	NodeId methodId;
 	OPCUA::StatusCode result = checkAndGetEntityId(methodName, methodId, UA_NODECLASS_METHOD);
@@ -641,27 +649,42 @@ OPCUA::StatusCode GenericClient::callMethod(const std::string &methodName,
 	return OPCUA::StatusCode::ERROR_COMMUNICATION;
 }
 
-OPCUA::StatusCode GenericClient::run_once(const std::string &address, const unsigned short &timeoutMS)
+OPCUA::StatusCode GenericClient::run_once() const
 {
 #ifdef HAS_OPCUA
+	// lock client mutex
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
+	// check if client is connected at all (if not, sleep for the minSubscriptionInterval time and return DISCONNECTED)
 	if(client == 0) {
-		UA_sleep_ms(timeoutMS);
+		std::this_thread::sleep_for(minSubscriptionInterval);
 		return OPCUA::StatusCode::DISCONNECTED;
 	}
+
+	// calculate the wake-up-time
+	std::chrono::system_clock::time_point wakeupTime = std::chrono::system_clock::now() + minSubscriptionInterval;
+
 	/* if already connected, this will return GOOD and do nothing */
 	/* if the connection is closed/errored, the connection will be reset and then reconnected */
 	/* Alternatively you can also use UA_Client_getState to get the current state */
-	//UA_ClientState clientState = UA_Client_getState(client);
-	UA_StatusCode status = UA_Client_connect(client, address.c_str());
-	if(status != UA_STATUSCODE_GOOD) {
-		std::cerr << "client connection status != UA_STATUSCODE_GOOD: " << status << std::endl;
+	UA_ClientState clientState = UA_Client_getState(client);
+	if(clientState != UA_CLIENTSTATE_SESSION) {
+		std::cerr << "client-state != UA_CLIENTSTATE_SESSION: " << clientState << std::endl;
 		/* The connect may timeout after 1 second (see above) or it may fail immediately on network errors */
 		/* E.g. name resolution errors or unreachable network. Thus there should be a small sleep here */
-		UA_sleep_ms(timeoutMS);
+		std::this_thread::sleep_for(minSubscriptionInterval);
 		return OPCUA::StatusCode::DISCONNECTED;
 	}
-	// run client's callback interface with 500ms timeout
-	UA_Client_run_iterate(client, timeoutMS);
+	// run client's callback interface non-blocking
+	UA_Client_run_iterate(client, 0);
+
+	// release the lock BEFORE! the sleep is called (this enables using synchronous calls more frequently than the subscription interval)
+	lock.unlock();
+
+	if(wakeupTime > std::chrono::system_clock::now()) {
+		std::this_thread::sleep_until(wakeupTime);
+	}
+
 	return OPCUA::StatusCode::ALL_OK;
 #else
 	return OPCUA::StatusCode::ERROR_COMMUNICATION;
