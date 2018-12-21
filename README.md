@@ -2,6 +2,11 @@
 
 This repository consists of device driver implementations, each providing an OPC UA interface. The OPC UA interface is implemented using the [open62541](https://open62541.org/) C library which is encapsulated within the leightweight C++ Wrapper (see subfolder Open62541CppWrapper). Individual devices might have additional, platform-specific dependencies related to the respectivelly used device library. 
 
+This repository is maintained by Servicerobotik Ulm. For more information see:
+
+* Big picture: relation of repositories: https://wiki.servicerobotik-ulm.de/download
+* SRRC Technical Wiki on SmartSoft and SmartMDSD Toolchain: https://wiki.servicerobotik-ulm.de
+
 ## Installation dependencies
 
   * [**open62541**](https://open62541.org/) using the [github repository](https://github.com/open62541/open62541) (install as described below)
