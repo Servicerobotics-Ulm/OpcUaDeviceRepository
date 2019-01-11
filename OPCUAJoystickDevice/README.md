@@ -12,6 +12,17 @@ For installation instructions, refer to [../README.md](../README.md).
 
 To start the OPC UA Joystick Device follow the instructions below:
 
+Step 1: Build OpcUaDeviceRepository Examples
 ```sh
-$ FIXME
+$ cd Path/To/OpcUaDeviceRepository
+$ mkdir build
+$ cd build
+$ cmake ..
+$ make
+```
+Step 2: Attach joystick to the computer
+Step 3: Start OPC UA Joystick Device
+```sh
+$ cd Path/To/OpcUaDeviceRepository/build/OPCUAJoystickDevice
+$ ./OPCUAJoystickServer
 ```
