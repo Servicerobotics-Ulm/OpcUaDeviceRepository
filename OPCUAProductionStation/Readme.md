@@ -27,3 +27,6 @@ Step 3: Start OPC UA Production Station<br />
 $ cd Path/To/OpcUaDeviceRepository/build/OPCUAProductionStation
 $ ./ProductionStationServer
 ```
+
+Step 4: The Server can now be accessed from any OPC UA Client.
+![Alt text](ProductionStationSW.png?raw=true "Production Station Server Method Call Usage")
