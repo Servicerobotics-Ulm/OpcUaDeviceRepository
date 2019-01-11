@@ -26,3 +26,6 @@ Step 3: Start OPC UA Joystick Device<br />
 $ cd Path/To/OpcUaDeviceRepository/build/OPCUAJoystickDevice
 $ ./OPCUAJoystickServer
 ```
+Step 4: You should be able to see Joystick updates on Server console.<br />
+![Alt text](JoystickOUT.png?raw=true "Joystick Server Console")
+Step 5: The Server can now be accessed from any OPC UA Client. 
