@@ -13,7 +13,7 @@ For installation instructions, refer to [../README.md](../README.md).
 
 To start the OPC UA Traffic Light Server follow the instructions below:
 
-Step 1: Build OpcUaDeviceRepository Examples on PiXtend V2 device<br />
+Step 1: Build OpcUaDeviceRepository Examples on any computer<br />
 ```sh
 $ cd Path/To/OpcUaDeviceRepository
 $ mkdir build
