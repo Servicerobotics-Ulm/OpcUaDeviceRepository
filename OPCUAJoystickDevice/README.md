@@ -5,7 +5,7 @@ This Device implementation probides an OPC UA server that uses the Linux Joystic
 ## The OPC UA Information Model
 
 FIXME: shortly describe the information model with a Prosys screenshot 
-
+![Alt text](Joystick.png?raw=true "Joystick Server Information Model")
 ## Usage
 
 For installation instructions, refer to [../README.md](../README.md).
