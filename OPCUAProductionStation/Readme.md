@@ -4,13 +4,13 @@ This Device implementation provides an OPC UA server that runs on a PiXtend V2 d
 
 ![Alt text](OPCUAProductionStation.jpg?raw=true "OPC UA Production Station Setup")
 
-The production station consists of the following hardware components:
-PiXtend V2 S https://www.pixtend.de/downloads/pixtend-v2-downloads-english/
-Miniature worm gear motor SFS Gr. 2 with DC-motor 24V i=59:3 idle speed 210 /min  https://www.maedler.de/Article/43047424
-IBT-2 H-bridge module http://www.hessmer.org/blog/2013/12/28/ibt-2-h-bridge-with-arduino/
-MDR-100-24 AC to DC converter https://eu.mouser.com/ProductDetail/MEAN-WELL/MDR-100-24?qs=TaOZSEYtRiUHDfSuqlnTDA==
-K37 cable EM 24VAC/DC GN/YE/RD  https://www.werma.com/en/s_c900i2583/K37_cable_24VAC/DC_CL/GN/YE/RD/69814075.html
-FESTO 165 326 SOEG-L-Q30-P-A-K-2L  https://www.festo.com/net/SupportPortal/Files/407497/SOEG-L-Q30-PA-K-2L_2007-07b_719262D6.pdf
+The production station consists of the following hardware components:<br />
+PiXtend V2 S https://www.pixtend.de/downloads/pixtend-v2-downloads-english/ <br />
+Miniature worm gear motor SFS Gr. 2 with DC-motor 24V i=59:3 idle speed 210 per min  https://www.maedler.de/Article/43047424 <br />
+IBT-2 H-bridge module http://www.hessmer.org/blog/2013/12/28/ibt-2-h-bridge-with-arduino/ <br />
+MDR-100-24 AC to DC converter https://eu.mouser.com/ProductDetail/MEAN-WELL/MDR-100-24?qs=TaOZSEYtRiUHDfSuqlnTDA== <br />
+K37 cable EM 24VAC/DC GN/YE/RD  https://www.werma.com/en/s_c900i2583/K37_cable_24VAC/DC_CL/GN/YE/RD/69814075.html <br />
+FESTO 165 326 SOEG-L-Q30-P-A-K-2L  https://www.festo.com/net/SupportPortal/Files/407497/SOEG-L-Q30-PA-K-2L_2007-07b_719262D6.pdf <br />
 
 ## The OPC UA Information Model
 
