@@ -20,7 +20,7 @@ The OPC UA information model for Production Station contains 3 boolean nodes (On
 
 For installation instructions, refer to [../README.md](../README.md).
 
-As an additional dependency, this programm requires the **pxdev** library that you can downlad from: FIXME add link
+Refer PiXtend V2 S documentation for additional dependencies. (https://www.pixtend.de/downloads/pixtend-v2-downloads-english/)
 
 To start the OPC UA Production Station follow the instructions below:
 
