@@ -21,6 +21,13 @@
 #include <sstream>
 #include <functional>
 
+#ifdef HAS_OPCUA
+#ifndef UA_ENABLE_AMALGAMATION
+#include <ua_config_default.h>
+#include <ua_log_stdout.h>
+#endif
+#endif // HAS_OPCUA
+
 namespace OPCUA {
 
 #ifdef HAS_OPCUA

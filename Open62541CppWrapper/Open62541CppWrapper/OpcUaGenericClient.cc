@@ -23,6 +23,14 @@
 #include <chrono>
 #include <thread>
 
+#ifdef HAS_OPCUA
+#ifndef UA_ENABLE_AMALGAMATION
+#include <ua_config_default.h>
+#include <ua_client_subscriptions.h>
+#include <ua_client_highlevel.h>
+#endif
+#endif // HAS_OPCUA
+
 namespace OPCUA {
 
 #ifdef HAS_OPCUA

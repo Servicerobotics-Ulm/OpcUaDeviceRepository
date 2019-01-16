@@ -27,7 +27,11 @@
 #include <condition_variable>
 
 #ifdef HAS_OPCUA
-#include <open62541.h>
+	#ifdef UA_ENABLE_AMALGAMATION
+		#include <open62541.h>
+	#else
+		#include <ua_client.h>
+	#endif
 #endif
 
 #include "OpcUaStatusCode.hh"

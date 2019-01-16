@@ -18,7 +18,11 @@
 #define OPCUANODEID_HH_
 
 #ifdef HAS_OPCUA
-#include <open62541.h>
+	#ifdef UA_ENABLE_AMALGAMATION
+		#include <open62541.h>
+	#else
+		#include <ua_types.h>
+	#endif
 #endif
 
 #include <string>

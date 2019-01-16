@@ -21,9 +21,13 @@
 #include <vector>
 
 #ifdef HAS_OPCUA
-#include <open62541.h>
+	#ifdef UA_ENABLE_AMALGAMATION
+		#include <open62541.h>
+	#else
+		#include <ua_types.h>
+	#endif
 #else
-#include <sstream>
+	#include <sstream>
 #endif
 
 namespace OPCUA {

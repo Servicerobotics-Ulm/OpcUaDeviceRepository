@@ -17,12 +17,16 @@
 #ifndef OPCUAGENERICSERVER_HH_
 #define OPCUAGENERICSERVER_HH_
 
-#ifdef HAS_OPCUA
-#include <open62541.h>
-#endif
-
 #include <map>
 #include <string>
+
+#ifdef HAS_OPCUA
+	#ifdef UA_ENABLE_AMALGAMATION
+		#include <open62541.h>
+	#else
+		#include <ua_server.h>
+	#endif
+#endif
 
 #include "OpcUaStatusCode.hh"
 #include "OpcUaValueType.hh"

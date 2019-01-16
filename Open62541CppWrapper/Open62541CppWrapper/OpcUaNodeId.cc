@@ -18,6 +18,12 @@
 
 #include <sstream>
 
+#ifdef HAS_OPCUA
+#ifndef UA_ENABLE_AMALGAMATION
+#include <ua_types_generated_handling.h>
+#endif
+#endif
+
 namespace OPCUA {
 
 NodeId::NodeId()
