@@ -1,7 +1,11 @@
 # OPC UA Traffic Light Server (Software Simulated)
 
-This Device implementation provides an OPC UA server that runs on a simulated PiXtend V2 device as the controller for a traffic light (Software Simulated). The following diagram describes the traffic light setup.
-![Alt text](OPCUATrafficlight.jpg?raw=true "OPC UA Trafficlight Setup")
+This Device implementation provides an OPC UA server that runs on a simulated PiXtend V2 device as the controller for a traffic light (Software Simulated). The following describes the traffic light setup for simulated PiXtend V2 device.
+```sh
+Digital Output Pin 0 (DO 0): RED LED 
+Digital Output Pin 1 (DO 1): YELLOW LED
+Digital Output Pin 2 (DO 2): GREEN LED
+```
 
 ## The OPC UA Information Model
 
