@@ -154,9 +154,15 @@ public:
 	 *  @param rootObjectName The browse noame of the root-object within the server-space
 	 *  @param namespaceId optionally, the namespace ID for the browse-name can be given (default: 1)
 	 *  @param portNr optional port number for the server to listen to (default: 4840)
+	 *  @param activateSignalHandler optional parameter to activate/deactivate the default SIGINT signal handler (for stopping the server with CTRL+C)
 	 *
 	 */
-	GenericServer(const std::string &rootObjectName, const unsigned short &namespaceId=1, const unsigned short &portNr=4840);
+	GenericServer(
+		const std::string &rootObjectName,
+		const unsigned short &namespaceId=1,
+		const unsigned short &portNr=4840,
+		const bool &activateSignalHandler=true
+	);
 
 	/// default destructor
 	virtual ~GenericServer();
