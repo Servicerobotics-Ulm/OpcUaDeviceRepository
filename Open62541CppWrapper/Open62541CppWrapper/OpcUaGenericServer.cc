@@ -118,7 +118,7 @@ genericMethodCallback(UA_Server *server,
 }
 #endif // HAS_OPCUA
 
-GenericServer::GenericServer(const std::string &rootObjectName, const unsigned short &namespaceId)
+GenericServer::GenericServer(const std::string &rootObjectName, const unsigned short &namespaceId, const unsigned short &portNr)
 {
 	#ifdef HAS_OPCUA
 	// setup signal handlers
@@ -126,7 +126,7 @@ GenericServer::GenericServer(const std::string &rootObjectName, const unsigned s
 	signal(SIGTERM, signal_handler);
 
 	// setup the OPC UA server
-	config = UA_ServerConfig_new_default();
+	config = UA_ServerConfig_new_minimal(portNr, NULL);
 	server = UA_Server_new(config);
 
 	on_read_upcall_bindings[server] = std::bind(&GenericServer::handleOnRead, this, std::placeholders::_1, std::placeholders::_2);

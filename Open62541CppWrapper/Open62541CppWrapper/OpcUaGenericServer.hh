@@ -146,8 +146,17 @@ protected:
 	virtual void handleMethodCall(const std::string &browseName, const std::vector<ValueType> &inputs, std::vector<ValueType> &outputs);
 
 public:
-	/// default constructor requires a name for the root object that is automatically created
-	GenericServer(const std::string &rootObjectName, const unsigned short &namespaceId=1);
+	/** default constructor requires at the minimum a name for the root object that is automatically created
+	 *
+	 *  This constructor internally creates a new UA_Server and a server space with one root object
+	 *  with the given name and namespace-ID. Optionally, the port-number for the UA_Server can be provided.
+	 *
+	 *  @param rootObjectName The browse noame of the root-object within the server-space
+	 *  @param namespaceId optionally, the namespace ID for the browse-name can be given (default: 1)
+	 *  @param portNr optional port number for the server to listen to (default: 4840)
+	 *
+	 */
+	GenericServer(const std::string &rootObjectName, const unsigned short &namespaceId=1, const unsigned short &portNr=4840);
 
 	/// default destructor
 	virtual ~GenericServer();
