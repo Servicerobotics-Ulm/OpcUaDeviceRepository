@@ -25,9 +25,9 @@
 
 #ifdef HAS_OPCUA
 #ifndef UA_ENABLE_AMALGAMATION
-#include <ua_config_default.h>
-#include <ua_client_subscriptions.h>
-#include <ua_client_highlevel.h>
+#include <open62541/ua_config_default.h>
+#include <open62541/ua_client_subscriptions.h>
+#include <open62541/ua_client_highlevel.h>
 #endif
 #endif // HAS_OPCUA
 
@@ -113,15 +113,16 @@ OPCUA::StatusCode GenericClient::connect(const std::string &address, const std::
 	// lock client mutex
 	std::unique_lock<std::recursive_mutex> lock(clientMutex);
 
-	// create default client configuration
-	UA_ClientConfig config = UA_ClientConfig_default;
-	/* Set stateCallback */
-	config.inactivityCallback = inactivityCallback;
-	/* Perform a connectivity check every 2 seconds */
-	config.connectivityCheckInterval = 2000;
-
 	// create a new client
-	client = UA_Client_new(config);
+	client = UA_Client_new();
+
+	// create default client configuration
+	UA_ClientConfig *config = UA_Client_getConfig(client);
+	UA_ClientConfig_setDefault(config);
+	/* Set stateCallback */
+	config->inactivityCallback = inactivityCallback;
+	/* Perform a connectivity check every 2 seconds */
+	config->connectivityCheckInterval = 2000;
 
 	if( hasEndpoints(address) == true ) 
 	{

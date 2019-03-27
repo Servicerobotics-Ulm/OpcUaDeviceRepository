@@ -23,8 +23,8 @@
 
 #ifdef HAS_OPCUA
 #ifndef UA_ENABLE_AMALGAMATION
-#include <ua_config_default.h>
-#include <ua_log_stdout.h>
+#include <open62541/ua_config_default.h>
+#include <open62541/ua_log_stdout.h>
 #endif
 #endif // HAS_OPCUA
 

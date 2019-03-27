@@ -20,7 +20,7 @@
 
 #ifdef HAS_OPCUA
 #ifndef UA_ENABLE_AMALGAMATION
-#include <ua_types_generated_handling.h>
+#include <open62541/ua_types_generated_handling.h>
 #endif
 #endif
 
