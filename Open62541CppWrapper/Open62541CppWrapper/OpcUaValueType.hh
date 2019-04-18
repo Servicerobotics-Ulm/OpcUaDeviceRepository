@@ -24,7 +24,7 @@
 	#ifdef UA_ENABLE_AMALGAMATION
 		#include <open62541.h>
 	#else
-		#include <open62541/ua_types.h>
+		#include <open62541/types.h>
 	#endif
 #else
 	#include <sstream>

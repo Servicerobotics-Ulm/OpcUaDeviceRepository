@@ -30,7 +30,7 @@
 	#ifdef UA_ENABLE_AMALGAMATION
 		#include <open62541.h>
 	#else
-		#include <open62541/ua_client.h>
+		#include <open62541/client.h>
 	#endif
 #endif
 

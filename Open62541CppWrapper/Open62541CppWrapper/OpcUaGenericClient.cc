@@ -25,9 +25,9 @@
 
 #ifdef HAS_OPCUA
 #ifndef UA_ENABLE_AMALGAMATION
-#include <open62541/ua_config_default.h>
-#include <open62541/ua_client_subscriptions.h>
-#include <open62541/ua_client_highlevel.h>
+#include <open62541/client_config_default.h>
+#include <open62541/client_subscriptions.h>
+#include <open62541/client_highlevel.h>
 #endif
 #endif // HAS_OPCUA
 
