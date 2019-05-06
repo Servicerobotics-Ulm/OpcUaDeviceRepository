@@ -129,8 +129,12 @@ GenericServer::GenericServer(const std::string &rootObjectName, const unsigned s
 	}
 
 	// setup the OPC UA server
-	config = UA_ServerConfig_new_minimal(portNr, NULL);
-	server = UA_Server_new(config);
+	server = UA_Server_new();
+	config = UA_Server_getConfig(server);
+	UA_ServerConfig_setMinimal(config, portNr, NULL);
+	// TODO: this configuration is only required to get the Prosys OPC UA Client to work,
+	// see issue: https://github.com/open62541/open62541/issues/2702
+	config->verifyRequestTimestamp = UA_RULEHANDLING_WARN;
 
 	on_read_upcall_bindings[server] = std::bind(&GenericServer::handleOnRead, this, std::placeholders::_1, std::placeholders::_2);
 	on_write_upcall_bindings[server] = std::bind(&GenericServer::handleOnWrite, this, std::placeholders::_1, std::placeholders::_2);
@@ -147,7 +151,6 @@ GenericServer::~GenericServer()
 	#ifdef HAS_OPCUA
 	// cleanup server resources
 	UA_Server_delete(server);
-	UA_ServerConfig_delete(config);
 	#endif // HAS_OPCUA
 }
 
