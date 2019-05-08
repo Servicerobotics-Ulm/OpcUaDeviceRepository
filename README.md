@@ -39,13 +39,28 @@ $ sudo make install
 ```
 ![IMG02](images/IMG02_Building_open62541.png)
 ### Building and running OPCUA examples using single-file release open62541.h
-```sh
-$ cd examples
-$ gcc -std=c99 -I../build/ ../build/open62541.c tutorial_server_variable.c -o server
-$ ./server
-```
-![IMG03](images/IMG03_Running_Examples.png) 
 
+Use cmake with flag UA_BUILD_EXAMPLES to build all examples.
+
+```sh
+$ cmake -DUA_BUILD_EXAMPLES=ON -DUA_ENABLE_METHODCALLS=ON -DUA_ENABLE_SUBSCRIPTIONS=ON -DUA_ENABLE_DISCOVERY_MULTICAST=ON ..
+$ make
+```
+
+See also the official [Open62541 Online Build Instructions](https://open62541.org/doc/current/building.html) for further build options.
+
+Now you can run individual examples.
+
+```sh
+$ cd bin/examples
+$ ls
+access_control_client          client_connect_loop            discovery_server_multicast  server_nodeset              tutorial_server_firststeps
+access_control_server          client_subscription_loop       discovery_server_register   server_repeated_job         tutorial_server_method
+client                         custom_datatype_client         server_ctt                  tutorial_client_events      tutorial_server_monitoreditems
+client_async                   custom_datatype_server         server_inheritance          tutorial_client_firststeps  tutorial_server_object
+client_connect                 discovery_client_find_servers  server_instantiation        tutorial_datatypes          tutorial_server_variable
+client_connectivitycheck_loop  discovery_server_lds           server_mainloop             tutorial_server_datasource  tutorial_server_variabletype
+```
 ### Open a Prosys OPC UA client to view/edit server nodes
 **Address**: opc.tcp://<*IP address of server* / *localhost*>:4840
 ![IMG04](images/IMG04_View_in_OPCUA_client.png)
