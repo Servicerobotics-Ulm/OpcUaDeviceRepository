@@ -38,7 +38,7 @@ $ make
 $ sudo make install
 ```
 ![IMG02](images/IMG02_Building_open62541.png)
-### Building and running OPCUA examples using single-file release open62541.h
+### Building and running OPCUA examples
 
 Use cmake with flag UA_BUILD_EXAMPLES to build all examples.
 
