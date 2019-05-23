@@ -33,7 +33,7 @@ $ git submodule update
 ```sh
 $ mkdir build
 $ cd build
-$ cmake -DUA_ENABLE_METHODCALLS=ON -DUA_ENABLE_SUBSCRIPTIONS=ON -DUA_ENABLE_DISCOVERY_MULTICAST=ON ..
+$ cmake -DUA_ENABLE_DISCOVERY_MULTICAST=ON -DBUILD_SHARED_LIBS=ON ..
 $ make
 $ sudo make install
 ```
@@ -43,7 +43,7 @@ $ sudo make install
 Use cmake with flag UA_BUILD_EXAMPLES to build all examples.
 
 ```sh
-$ cmake -DUA_BUILD_EXAMPLES=ON -DUA_ENABLE_METHODCALLS=ON -DUA_ENABLE_SUBSCRIPTIONS=ON -DUA_ENABLE_DISCOVERY_MULTICAST=ON ..
+$ cmake -DUA_BUILD_EXAMPLES=ON -DUA_ENABLE_DISCOVERY_MULTICAST=ON -DBUILD_SHARED_LIBS=ON ..
 $ make
 ```
 
