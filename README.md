@@ -30,6 +30,12 @@ $ git submodule update
 ![IMG01](images/IMG01_Cloning_open62541.png)
 
 ### Building open62541
+
+Here we specify only those cmake flags that are deactivated by default. Moreover, we assume that the following required cmake flags are automatically activated:
+
+- UA_ENABLE_METHODCALLS
+- UA_ENABLE_SUBSCRIPTIONS
+
 ```sh
 $ mkdir build
 $ cd build
