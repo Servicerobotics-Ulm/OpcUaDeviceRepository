@@ -57,7 +57,7 @@ bool Trafficlight::createServerSpace()
 	return true;
 }
 
-void Trafficlight::handleOnRead(const std::string &browseName, ValueType &value)
+void Trafficlight::handleOnRead(const std::string &browseName, Variant &value)
 {
 	if(browseName == "LED_RED") {
 		bool LED_RED;
@@ -77,7 +77,7 @@ void Trafficlight::handleOnRead(const std::string &browseName, ValueType &value)
 	}
 }
 
-void Trafficlight::handleOnWrite(const std::string &browseName, const ValueType &value)
+void Trafficlight::handleOnWrite(const std::string &browseName, const Variant &value)
 {
 	// propagate the write calls to respective upcalls (only if write access is activated)
 	if(browseName == "LED_RED") {
@@ -89,7 +89,7 @@ void Trafficlight::handleOnWrite(const std::string &browseName, const ValueType 
 	}
 }
 
-void Trafficlight::handleMethodCall(const std::string &browseName, const std::vector<ValueType> &inputs, std::vector<ValueType> &outputs)
+void Trafficlight::handleMethodCall(const std::string &browseName, const std::vector<Variant> &inputs, std::vector<Variant> &outputs)
 {
 }
 

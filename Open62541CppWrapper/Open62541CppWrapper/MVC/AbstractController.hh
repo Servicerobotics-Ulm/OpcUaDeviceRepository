@@ -39,8 +39,7 @@ public:
 	}
 
 	/// default destructor
-	virtual ~AbstractController()
-	{  }
+	virtual ~AbstractController() = default;
 
 	/// call this method at the end of the main function
 	virtual int run() = 0;

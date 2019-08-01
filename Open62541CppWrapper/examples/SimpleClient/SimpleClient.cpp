@@ -13,11 +13,17 @@
 #include <thread>
 #include <mutex>
 
+static bool running = true;
+static void stopHandler(int sig) {
+	std::cout << "Received ctrl-c" << std::endl;
+    running = false;
+}
+
 std::mutex mutex;
 
 class MyClient: public OPCUA::GenericClient {
 protected:
-	virtual void handleVariableValueUpdate(const std::string &entityName, const OPCUA::ValueType &value) override
+	virtual void handleVariableValueUpdate(const std::string &entityName, const OPCUA::Variant &value) override
 	{
 		std::cout << "handleEntityUpdate(" << entityName << "): " << value << std::endl;
 	}
@@ -37,11 +43,14 @@ void run(MyClient *client) {
 	do {
 		std::cout << "run_once()..." <<std::endl;
 		status = client->run_once();
-	} while(status == OPCUA::StatusCode::ALL_OK);
+	} while(running == true);
 }
 
 int main(int argc, char* argv[]) 
 {
+    signal(SIGINT, stopHandler);
+    signal(SIGTERM, stopHandler);
+
 	std::string address = "opc.tcp://localhost:4840";
 	std::string objectName;	
 	if(argc < 2) {
@@ -56,10 +65,10 @@ int main(int argc, char* argv[])
 	std::cout << "connecting client: " << client.connect(address, objectName) << std::endl;
 
 	// call a remote method at the sever
-	std::vector<OPCUA::ValueType> inputArguments(2);
+	std::vector<OPCUA::Variant> inputArguments(2);
 	inputArguments[0] = 100;
 	inputArguments[1] = std::string("Hello");
-	std::vector<OPCUA::ValueType> outputArguments;
+	std::vector<OPCUA::Variant> outputArguments;
 	std::cout << "call method MyMethod: " << client.callMethod("MyMethod", inputArguments, outputArguments) << std::endl;
 	for(size_t i=0; i<outputArguments.size(); ++i) {
 		std::cout << "output" << i << ": " << outputArguments[i] << std::endl;
@@ -68,8 +77,8 @@ int main(int argc, char* argv[])
 	// execute client's upcall interface (i.e. its method "run_once()") in a separate thread (just for testing, can also be executed in this main)
 	std::thread th(run, &client);
 
-	while(true) {
-		OPCUA::ValueType v;
+	while(running == true) {
+		OPCUA::Variant v;
 		// actively poll for variable values
 		client.getVariableCurrentValue("MyVar", v);
 		std::cout << "polling MyVar: " << v << std::endl;

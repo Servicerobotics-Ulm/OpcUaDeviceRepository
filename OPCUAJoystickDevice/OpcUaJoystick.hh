@@ -51,7 +51,7 @@ private:
 	 *  @param value output argument receives the new value of the OPC UA variable
 	 *
 	 */
-	virtual void handleOnRead(const std::string &browseName, ValueType &value) override;
+	virtual void handleOnRead(const std::string &browseName, Variant &value) override;
 
 	/** this method notifies about write requests from a remote client for the provided variable name
 	 *
@@ -62,7 +62,7 @@ private:
 	 *  @param value the new value of the OPC UA variable
 	 *
 	 */
-	virtual void handleOnWrite(const std::string &browseName, const ValueType &value) override;
+	virtual void handleOnWrite(const std::string &browseName, const Variant &value) override;
 
 	/** this method notifies about remote method calls from a remote client for the provided OPC UA Method name
 	 *
@@ -74,7 +74,7 @@ private:
 	 *  @param outputs a reference to a vector to store the resulting output-argument-values
 	 *
 	 */
-	virtual void handleMethodCall(const std::string &browseName, const std::vector<ValueType> &inputs, std::vector<ValueType> &outputs) override;
+	virtual void handleMethodCall(const std::string &browseName, const std::vector<Variant> &inputs, std::vector<Variant> &outputs) override;
 	
 public:
 	Joystick(JoystickInterface *controller);

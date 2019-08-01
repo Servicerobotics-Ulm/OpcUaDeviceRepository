@@ -18,11 +18,7 @@
 #define OPCUANODEID_HH_
 
 #ifdef HAS_OPCUA
-	#ifdef UA_ENABLE_AMALGAMATION
-		#include <open62541.h>
-	#else
-		#include <open62541/types.h>
-	#endif
+	#include <open62541/types.h>
 #endif
 
 #include <string>
@@ -82,8 +78,11 @@ public:
 	/// native const access
 	operator const NativeIdType*() const;
 
-	/// native id conversion operator (makes a copy of the internal id)
-	operator NativeIdType() const;
+	/// native id const reference
+	operator const NativeIdType&() const;
+
+	/// native id explicit deep-copy (needs to be freed manually)
+	NativeIdType getNativeIdCopy() const;
 
 	/// comparison operator: equality
 	bool operator ==(const NodeId &id) const;
@@ -101,6 +100,9 @@ public:
 
 	/// returns a string representation of the ID without the namespace index
 	std::string getSimpleName() const;
+
+	/// returns a string representation of the ID including the namespace index
+	std::string getFullName() const;
 };
 
 } /* namespace OPCUA */

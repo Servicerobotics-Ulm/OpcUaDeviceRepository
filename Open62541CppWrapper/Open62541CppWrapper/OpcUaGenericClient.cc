@@ -57,6 +57,20 @@ handle_entity_update(UA_Client *client, UA_UInt32 subId, void *subContext,
 		it->second(subId, value);
 	}
 }
+
+static std::map<UA_UInt32,std::function<void(const UA_UInt32&, const size_t&, UA_Variant*)>> event_bindings;
+static void
+handle_events(UA_Client *client, UA_UInt32 subId, void *subContext,
+               UA_UInt32 monId, void *monContext,
+               size_t nEventFields, UA_Variant *eventFields)
+{
+	// TODO: do we need to consider the monId
+	auto it = event_bindings.find(subId);
+	if(it != event_bindings.end()) {
+		// call bound function
+		it->second(subId, nEventFields, eventFields);
+	}
+}
 #endif
 
 bool GenericClient::hasEndpoints(const std::string &address, const bool &display)
@@ -104,7 +118,7 @@ GenericClient::~GenericClient()
 	this->disconnect();
 }
 
-OPCUA::StatusCode GenericClient::connect(const std::string &address, const std::string &objectName, const bool activateUpcalls)
+OPCUA::StatusCode GenericClient::connect(const std::string &address, const std::string &objectPath, const bool activateUpcalls)
 {
 	// make sure the client is disconnected in any case
 	this->disconnect();
@@ -135,11 +149,9 @@ OPCUA::StatusCode GenericClient::connect(const std::string &address, const std::
 			return OPCUA::StatusCode::ERROR_COMMUNICATION;
 		}
 
-		// find the root object using its browseName under the default objects folder
-		rootObjectId = this->findElement(objectName,
-			UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), // the the default objects folder as parent
-			UA_NODECLASS_OBJECT // look for object types only
-		);
+		// find the root object using its objectPath under the default objects folder
+		rootObjectId = this->browseObjectPath(objectPath);
+
 		if(rootObjectId.isNull()) {
 			// if the object could no be found -> disconnect client and return wrong ID
 			this->disconnect();
@@ -183,12 +195,7 @@ OPCUA::StatusCode GenericClient::disconnect()
 }
 
 #ifdef HAS_OPCUA
-/**
- * This implementation used a somewhat complicated low-level API at the moment because the client's
- * high-level API seems not yet to be implemented. This implementation can be simplified in the future when
- * the high level API is provided.
- */
-NodeId GenericClient::browseObjectPath(const std::string &objectPath, const unsigned short namespaceIndex) const
+NodeId GenericClient::browseObjectPath(const std::string &objectPath) const
 {
 	// lock client mutex
 	std::unique_lock<std::recursive_mutex> lock(clientMutex);
@@ -208,46 +215,14 @@ NodeId GenericClient::browseObjectPath(const std::string &objectPath, const unsi
 
 	if(path_segments.size() > 0)
 	{
-		// create a UA relative-path struct array and fill it with values
-		UA_RelativePathElement* ua_paths = (UA_RelativePathElement*)UA_Array_new(path_segments.size(), &UA_TYPES[UA_TYPES_RELATIVEPATHELEMENT]);
-		for(size_t i = 0; i < path_segments.size(); i++) {
-			if(i==0) {
-				// the first element is assumed to be the object type, hence, use the UA_NS0ID_ORGANIZES typeId
-				ua_paths[i].referenceTypeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
-			} else {
-				// all the following path elements are assumed to be components
-				ua_paths[i].referenceTypeId = UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT);
-			}
-			ua_paths[i].targetName = UA_QUALIFIEDNAME_ALLOC(namespaceIndex, path_segments[i].c_str());
-		}
-
-		// create the browse-path struct
-		UA_BrowsePath browsePath;
-		UA_BrowsePath_init(&browsePath);
-		// use the default objects foulder as root
-		browsePath.startingNode = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
-		browsePath.relativePath.elements = ua_paths;
-		browsePath.relativePath.elementsSize = path_segments.size();
-
-		// create the request struct including the browse path
-		UA_TranslateBrowsePathsToNodeIdsRequest request;
-		UA_TranslateBrowsePathsToNodeIdsRequest_init(&request);
-		request.browsePaths = &browsePath;
-		request.browsePathsSize = 1;
-
-		// call the browse service
-		UA_TranslateBrowsePathsToNodeIdsResponse response = UA_Client_Service_translateBrowsePathsToNodeIds(client, request);
-
-		if(response.responseHeader.serviceResult == UA_STATUSCODE_GOOD) {
-			if(response.resultsSize > 0 && response.results[0].targetsSize > 0) {
-				// we just get the first target's node-id (typically there should be just one single target found, if any)
-				nodeId = response.results[0].targets[0].targetId.nodeId;
+		// start iterating from the default objects folder
+		nodeId = NodeId(UA_NS0ID_OBJECTSFOLDER, 0);
+		for(auto segment: path_segments) {
+			// iteratively call find element for all segments, each time using the next nodeId as root
+			if(!nodeId.isNull()) {
+				nodeId = this->findElement(segment, nodeId, UA_NODECLASS_OBJECT);
 			}
 		}
-
-		// cleanup allocated memory
-		UA_BrowsePath_deleteMembers(&browsePath);
-		UA_TranslateBrowsePathsToNodeIdsResponse_deleteMembers(&response);
 	} // end if(path_elements.size() > 0)
 
 	// nodeId is UA_NODEID_NULL in case the element has no been found
@@ -269,7 +244,7 @@ NodeId GenericClient::findElement(const std::string &elementBrowseName, const No
     bReq.nodesToBrowse = UA_BrowseDescription_new();
     bReq.nodesToBrowseSize = 1;
     // use given nodeId as parent (default is UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER))
-    bReq.nodesToBrowse[0].nodeId = parentNodeId;
+    bReq.nodesToBrowse[0].nodeId = parentNodeId.getNativeIdCopy();
     bReq.nodesToBrowse[0].resultMask = UA_BROWSERESULTMASK_ALL; /* return everything */
 
     // call the browse service
@@ -419,7 +394,7 @@ UA_StatusCode GenericClient::createSubscription(const std::string &entityBrowseN
     subscription_bindings[response.subscriptionId] = std::bind(&GenericClient::handleEntity, this, std::placeholders::_1, std::placeholders::_2);
 
     // create a monitored item
-    UA_MonitoredItemCreateRequest monRequest = UA_MonitoredItemCreateRequest_default(entityId);
+    UA_MonitoredItemCreateRequest monRequest = UA_MonitoredItemCreateRequest_default(entityId.getNativeIdCopy());
     monRequest.requestedParameters.samplingInterval = request.requestedPublishingInterval;
     UA_MonitoredItemCreateResult monResponse =
     UA_Client_MonitoredItems_createDataChange(client, response.subscriptionId,
@@ -455,7 +430,7 @@ void GenericClient::handleEntity(const UA_UInt32 &subscriptionId, UA_DataValue *
 	std::unique_lock<std::recursive_mutex> lock(clientMutex);
 
 	// extract the actual value
-	OPCUA::ValueType value(data->value);
+	OPCUA::Variant value(data->value);
 
 	auto it = subscriptionsRegistry.find(subscriptionId);
 	if(it != subscriptionsRegistry.end())
@@ -475,7 +450,119 @@ void GenericClient::handleEntity(const UA_UInt32 &subscriptionId, UA_DataValue *
 #endif // HAS_OPCUA
 
 
-void GenericClient::handleVariableValueUpdate(const std::string &variableBrowseName, const OPCUA::ValueType &value)
+void GenericClient::handleVariableValueUpdate(const std::string &variableBrowseName, const OPCUA::Variant &value)
+{
+	// no-op
+}
+
+// this method activates a generic event handler for a given root-node and filter-clause
+unsigned int GenericClient::activateEvent(const std::vector<std::string> &eventSelections)
+{
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+
+	if(client == 0) {
+		return 0;
+	}
+
+#ifdef UA_ENABLE_SUBSCRIPTIONS
+	/* Create a default subscription */
+	UA_CreateSubscriptionRequest request = UA_CreateSubscriptionRequest_default();
+	UA_CreateSubscriptionResponse response = UA_Client_Subscriptions_create(
+			client, request,
+			NULL, NULL, NULL);
+	if (response.responseHeader.serviceResult != UA_STATUSCODE_GOOD) {
+		return 0;
+	}
+	UA_UInt32 subId = response.subscriptionId;
+
+	/* Add a MonitoredItem */
+	UA_MonitoredItemCreateRequest item;
+	UA_MonitoredItemCreateRequest_init(&item);
+	item.itemToMonitor.nodeId = rootObjectId;
+	item.itemToMonitor.attributeId = UA_ATTRIBUTEID_EVENTNOTIFIER;
+	item.monitoringMode = UA_MONITORINGMODE_REPORTING;
+
+	EventEntry event;
+	UA_EventFilter_init(&event.filter);
+	size_t nSelectClauses = eventSelections.size();
+	event.filter.selectClausesSize = nSelectClauses;
+
+	UA_SimpleAttributeOperand *selectClauses = (UA_SimpleAttributeOperand*)
+	        UA_Array_new(nSelectClauses, &UA_TYPES[UA_TYPES_SIMPLEATTRIBUTEOPERAND]);
+    if(!selectClauses)
+        return 0;
+
+    for(size_t i =0; i<nSelectClauses; ++i) {
+        UA_SimpleAttributeOperand_init(&selectClauses[i]);
+        selectClauses[i].typeDefinitionId = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEEVENTTYPE);
+        selectClauses[i].browsePathSize = 1;
+        selectClauses[i].browsePath = (UA_QualifiedName*)
+            UA_Array_new(selectClauses[0].browsePathSize, &UA_TYPES[UA_TYPES_QUALIFIEDNAME]);
+        if(!selectClauses[i].browsePath) {
+            UA_SimpleAttributeOperand_delete(selectClauses);
+            return 0;
+        }
+        selectClauses[i].attributeId = UA_ATTRIBUTEID_VALUE;
+        selectClauses[i].browsePath[0] = UA_QUALIFIEDNAME_ALLOC(0, eventSelections[i].c_str());
+    }
+
+	event.filter.selectClauses = selectClauses;
+
+	item.requestedParameters.filter.encoding = UA_EXTENSIONOBJECT_DECODED;
+	item.requestedParameters.filter.content.decoded.data = &event.filter;
+	item.requestedParameters.filter.content.decoded.type = &UA_TYPES[UA_TYPES_EVENTFILTER];
+
+	UA_UInt32 monId = 0;
+	event.result = UA_Client_MonitoredItems_createEvent(
+			client, subId, UA_TIMESTAMPSTORETURN_BOTH, item, &monId,
+			handle_events, NULL);
+	if(event.result.statusCode == UA_STATUSCODE_GOOD) {
+		eventRegistry[subId] = event;
+		// store the obect's function pointer within the internal registry
+		event_bindings[subId] = std::bind(&GenericClient::handleEventUpcall, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+		return subId;
+	}
+#endif
+	return 0;
+}
+
+void GenericClient::deactivateEvent(const unsigned int &eventId)
+{
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+#ifdef UA_ENABLE_SUBSCRIPTIONS
+	auto eventEntry = eventRegistry.find(eventId);
+	if(eventEntry != eventRegistry.end()) {
+		UA_Client_Subscriptions_deleteSingle(client, eventId);
+		UA_MonitoredItemCreateResult_clear(&eventEntry->second.result);
+		UA_Array_delete(eventEntry->second.filter.selectClauses, eventEntry->second.filter.selectClausesSize, &UA_TYPES[UA_TYPES_SIMPLEATTRIBUTEOPERAND]);
+		eventRegistry.erase(eventEntry);
+	}
+#endif
+}
+
+void GenericClient::handleEventUpcall(const UA_UInt32 &eventId, const size_t &nEventFields, UA_Variant *eventFields)
+{
+	std::unique_lock<std::recursive_mutex> lock(clientMutex);
+#ifdef UA_ENABLE_SUBSCRIPTIONS
+	auto eventEntry = eventRegistry.find(eventId);
+	if(eventEntry != eventRegistry.end()) {
+		std::map<std::string,OPCUA::Variant> eventData;
+		UA_EventFilter filter = eventEntry->second.filter;
+		for(size_t i=0; i<nEventFields; ++i) {
+			if(i <= filter.selectClausesSize) {
+				// here we assume that the field-names match the same order as the incoming event-fields
+				UA_String uname = filter.selectClauses[i].browsePath[0].name;
+				std::string field_name((const char*)uname.data, uname.length);
+				eventData[field_name] = OPCUA::Variant(eventFields[i]);
+			}
+		}
+		this->handleEvent(eventId, eventData);
+	}
+#endif
+}
+
+/// overload this method in derived classes to individually handle events
+void GenericClient::handleEvent(const unsigned int &eventId, const std::map<std::string,OPCUA::Variant> &eventData)
 {
 	// no-op
 }
@@ -526,7 +613,7 @@ bool GenericClient::addMethodNode(const std::string &methodBrowseName)
 #endif // HAS_OPCUA
 }
 
-OPCUA::StatusCode GenericClient::getVariableCurrentValue(const std::string &variableName, OPCUA::ValueType &value) const
+OPCUA::StatusCode GenericClient::getVariableCurrentValue(const std::string &variableName, OPCUA::Variant &value) const
 {
 	OPCUA::StatusCode result = OPCUA::StatusCode::ERROR_COMMUNICATION;
 #ifdef HAS_OPCUA
@@ -541,23 +628,20 @@ OPCUA::StatusCode GenericClient::getVariableCurrentValue(const std::string &vari
 	}
 
 	// Read attribute value
-	UA_Variant *variant = UA_Variant_new();
-	UA_NodeId uaId = entityId;
-	UA_StatusCode retval = UA_Client_readValueAttribute(client, uaId, variant);
+	UA_Variant *uaVar = UA_Variant_new();
+	UA_StatusCode retval = UA_Client_readValueAttribute(client, entityId, uaVar);
 	if(retval == UA_STATUSCODE_GOOD) {
-		// copy variant value
-		value = (const UA_Variant*)variant;
+		bool takeOwnership = true;
+		value = Variant(uaVar, takeOwnership);
 		result = OPCUA::StatusCode::ALL_OK;
 	} else {
 		result = OPCUA::StatusCode::ERROR_COMMUNICATION;
 	}
-	UA_NodeId_deleteMembers(&uaId);
-	UA_Variant_delete(variant);
 #endif // HAS_OPCUA
 	return result;
 }
 
-OPCUA::StatusCode GenericClient::getVariableNextValue(const std::string &variableName, OPCUA::ValueType &value)
+OPCUA::StatusCode GenericClient::getVariableNextValue(const std::string &variableName, OPCUA::Variant &value)
 {
 	// don't lock the clientMutex here as this would lead to a deadlock with the entityUpdateSignalRegistry (see below)
 	OPCUA::StatusCode result = OPCUA::StatusCode::ERROR_COMMUNICATION;
@@ -580,7 +664,7 @@ OPCUA::StatusCode GenericClient::getVariableNextValue(const std::string &variabl
 	return result;
 }
 
-OPCUA::StatusCode GenericClient::setVariableValue(const std::string &variableName, const OPCUA::ValueType &value)
+OPCUA::StatusCode GenericClient::setVariableValue(const std::string &variableName, const OPCUA::Variant &value)
 {
 	OPCUA::StatusCode result = OPCUA::StatusCode::ERROR_COMMUNICATION;
 #ifdef HAS_OPCUA
@@ -595,7 +679,7 @@ OPCUA::StatusCode GenericClient::setVariableValue(const std::string &variableNam
 	}
 
 	// write attribute value
-	UA_StatusCode retval = UA_Client_writeValueAttribute(client, entityId, value);
+	UA_StatusCode retval = UA_Client_writeValueAttribute(client, entityId, value.getInternalValuePtr().get());
 	if(retval == UA_STATUSCODE_GOOD) {
     	result = OPCUA::StatusCode::ALL_OK;
 	} else {
@@ -607,8 +691,8 @@ OPCUA::StatusCode GenericClient::setVariableValue(const std::string &variableNam
 }
 
 OPCUA::StatusCode GenericClient::callMethod(const std::string &methodName,
-                        const std::vector<OPCUA::ValueType> &inputArguments,
-                        std::vector<OPCUA::ValueType> &outputArguments)
+                        const std::vector<OPCUA::Variant> &inputArguments,
+                        std::vector<OPCUA::Variant> &outputArguments)
 {
 #ifdef UA_ENABLE_METHODCALLS
 	// lock client mutex
@@ -624,7 +708,7 @@ OPCUA::StatusCode GenericClient::callMethod(const std::string &methodName,
 	// create input arguments
 	std::vector<UA_Variant> uaInputArguments(inputArguments.size());
 	for(size_t i=0; i<inputArguments.size(); ++i) {
-		uaInputArguments[i] = inputArguments[i];
+		uaInputArguments[i] = inputArguments[i].getInternalValueCopy();
 	}
 
 	// output variables
@@ -643,7 +727,7 @@ OPCUA::StatusCode GenericClient::callMethod(const std::string &methodName,
 		// collect and return the output arguments
 		outputArguments.resize(outputSize);
 		for(size_t i=0; i<outputSize; ++i) {
-			outputArguments[i] = output[i];
+			outputArguments[i] = OPCUA::Variant(output[i]);
 		}
 		// cleanup output arguments memory
 		UA_Array_delete(output, outputSize, &UA_TYPES[UA_TYPES_VARIANT]);
@@ -666,6 +750,7 @@ OPCUA::StatusCode GenericClient::run_once() const
 
 	// check if client is connected at all (if not, sleep for the minSubscriptionInterval time and return DISCONNECTED)
 	if(client == 0) {
+		lock.unlock();
 		std::this_thread::sleep_for(minSubscriptionInterval);
 		return OPCUA::StatusCode::DISCONNECTED;
 	}
@@ -687,6 +772,11 @@ OPCUA::StatusCode GenericClient::run_once() const
 
 	// iterate client's async interface at least once for every subscription
 	for(size_t i=0; i < subscriptionsRegistry.size(); ++i) {
+		// run client's callback interface non-blocking
+		UA_Client_run_iterate(client, 0);
+	}
+	// iterate client's async interface at least once for every subscription
+	for(size_t i=0; i < eventRegistry.size(); ++i) {
 		// run client's callback interface non-blocking
 		UA_Client_run_iterate(client, 0);
 	}

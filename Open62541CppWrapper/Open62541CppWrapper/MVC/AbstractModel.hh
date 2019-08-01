@@ -19,8 +19,8 @@
 
 #include "AbstractModelObserver.hh"
 
-#include <mutex>
 #include <set>
+#include <mutex>
 
 namespace Smart {
 
@@ -47,7 +47,7 @@ protected:
 
 public:
 	AbstractModel();
-	virtual ~AbstractModel();
+	virtual ~AbstractModel() = default;
 
 	/// this method is used by AbstractModelObserver to get notified about model changes
 	void attach(AbstractModelObserver *observer);

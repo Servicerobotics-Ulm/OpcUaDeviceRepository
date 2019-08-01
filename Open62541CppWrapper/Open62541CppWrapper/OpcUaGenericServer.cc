@@ -39,10 +39,10 @@ void signal_handler(int sign)
     running = false;
 }
 
-static std::map<UA_Server*,std::function<void(const std::string&,ValueType&)>> on_read_upcall_bindings;
-static std::map<UA_Server*,std::function<void(const std::string&,const ValueType&)>> on_write_upcall_bindings;
+static std::map<UA_Server*,std::function<void(const std::string&,Variant&)>> on_read_upcall_bindings;
+static std::map<UA_Server*,std::function<void(const std::string&,const Variant&)>> on_write_upcall_bindings;
 
-static std::map<UA_Server*,std::function<void(const std::string&,const std::vector<ValueType>&,std::vector<ValueType>&)>> method_callback_bindings;
+static std::map<UA_Server*,std::function<void(const std::string&,const std::vector<Variant>&,std::vector<Variant>&)>> method_callback_bindings;
 
 
 static std::string readBrowseName(UA_Server *server, const UA_NodeId *nodeId)
@@ -65,11 +65,11 @@ static void handle_onRead(UA_Server *server,
 	auto it = on_read_upcall_bindings.find(server);
 	if(it != on_read_upcall_bindings.end()) {
 		// propagate upcall to the according server object to get a new value
-		ValueType value;
+		Variant value;
 		it->second(readBrowseName(server,nodeId), value);
 		if(!value.isEmpty()) {
 			// there is a new value from the upcall handler, write the value to the server
-			UA_Server_writeValue(server, *nodeId, *static_cast<const UA_Variant*>(value));
+			UA_Server_writeValue(server, *nodeId, *value.getInternalValuePtr().get());
 		}
 	}
 }
@@ -84,7 +84,7 @@ static void handle_onWrite(UA_Server *server,
 		auto it = on_write_upcall_bindings.find(server);
 		if(it != on_write_upcall_bindings.end()) {
 			// call the upcall method related to the according server object
-			it->second(readBrowseName(server,nodeId), ValueType(data->value));
+			it->second(readBrowseName(server,nodeId), Variant(data->value));
 		}
 	}
 }
@@ -97,11 +97,11 @@ genericMethodCallback(UA_Server *server,
                          size_t inputSize, const UA_Variant *input,
                          size_t outputSize, UA_Variant *output)
 {
-	std::vector<ValueType> inputVector(inputSize);
+	std::vector<Variant> inputVector(inputSize);
 	for(size_t i=0; i<inputSize; ++i) {
-		inputVector[i] = input[i];
+		inputVector[i] = Variant(input[i]);
 	}
-	std::vector<ValueType> outputVector(outputSize);
+	std::vector<Variant> outputVector(outputSize);
 
 	auto it = method_callback_bindings.find(server);
 	if(it != method_callback_bindings.end()) {
@@ -111,7 +111,7 @@ genericMethodCallback(UA_Server *server,
 
 		std::vector<UA_Variant> outputArguments(outputVector.size());
 		for(size_t i=0; i<outputVector.size(); ++i) {
-			output[i] = outputVector[i];
+			output[i] = outputVector[i].getInternalValueCopy();
 		}
 	}
 	return UA_STATUSCODE_GOOD;
@@ -155,15 +155,15 @@ GenericServer::~GenericServer()
 }
 
 
-void GenericServer::handleOnWrite(const std::string &browseName, const ValueType &value)
+void GenericServer::handleOnWrite(const std::string &browseName, const Variant &value)
 {
 	// no-op
 }
-void GenericServer::handleOnRead(const std::string &browseName, ValueType &value)
+void GenericServer::handleOnRead(const std::string &browseName, Variant &value)
 {
 	// no-op
 }
-void GenericServer::handleMethodCall(const std::string &browseName, const std::vector<ValueType> &inputs, std::vector<ValueType> &outputs)
+void GenericServer::handleMethodCall(const std::string &browseName, const std::vector<Variant> &inputs, std::vector<Variant> &outputs)
 {
 	// no-op
 }
@@ -213,7 +213,7 @@ bool GenericServer::createRootObject(const std::string &objectName, const unsign
 
 bool GenericServer::addVariableNode(
 		const std::string &nodeName,
-		const OPCUA::ValueType &initialValue,
+		const OPCUA::Variant &initialValue,
 		const bool &readOnly,
 		const unsigned short &namespaceId
 )
@@ -223,7 +223,7 @@ bool GenericServer::addVariableNode(
 	UA_VariableAttributes attr = UA_VariableAttributes_default;
 
 	// copy the initial value into the attribute definition
-	UA_Variant uaValue = initialValue;
+	UA_Variant uaValue = initialValue.getInternalValueCopy();
 	attr.dataType = uaValue.type->typeId;
 	attr.value = uaValue;
 
@@ -278,8 +278,8 @@ bool GenericServer::addVariableNode(
 }
 
 bool GenericServer::addMethodNode(const std::string &methodBrowseName,
-			const std::map<std::string,ValueType> &inputArguments,
-			const std::map<std::string,ValueType> &outputArguments,
+			const std::map<std::string,Variant> &inputArguments,
+			const std::map<std::string,Variant> &outputArguments,
 			const unsigned short &namespaceId)
 {
 #ifdef UA_ENABLE_METHODCALLS
@@ -291,21 +291,18 @@ bool GenericServer::addMethodNode(const std::string &methodBrowseName,
 		uaInputArguments[i].description = UA_LOCALIZEDTEXT_ALLOC("en-US", input->first.c_str());
 		uaInputArguments[i].name = UA_STRING_ALLOC(input->first.c_str());
 		// get a value copy
-		UA_Variant value = input->second;
-		uaInputArguments[i].dataType = value.type->typeId;
+		std::shared_ptr<Variant::NativeVariantType> valuePtr = input->second.getInternalValuePtr();
+		uaInputArguments[i].dataType = valuePtr->type->typeId;
 
-		if(input->second.isArrayType()) {
-			// setup the array dimensions
-			uaInputArguments[i].valueRank = 1;
-			uaInputArguments[i].arrayDimensionsSize = value.arrayDimensionsSize;
-			UA_UInt32_copy(value.arrayDimensions, uaInputArguments[i].arrayDimensions);
-		} else {
+		if(input->second.isScalar()) {
 			// scalar type
 			uaInputArguments[i].valueRank = -1;
+		} else {
+			// setup the array dimensions
+			uaInputArguments[i].valueRank = 1;
+			uaInputArguments[i].arrayDimensionsSize = valuePtr->arrayDimensionsSize;
+			UA_UInt32_copy(valuePtr->arrayDimensions, uaInputArguments[i].arrayDimensions);
 		}
-
-		// cleanup value copy
-		UA_Variant_deleteMembers(&value);
 
 		// increment i
 		i++;
@@ -321,21 +318,18 @@ bool GenericServer::addMethodNode(const std::string &methodBrowseName,
 		uaOutputArguments[i].description = UA_LOCALIZEDTEXT_ALLOC("en-US", output->first.c_str());
 		uaOutputArguments[i].name = UA_STRING_ALLOC(output->first.c_str());
 		// get a value copy
-		UA_Variant value = output->second;
-		uaOutputArguments[i].dataType = value.type->typeId;
+		std::shared_ptr<Variant::NativeVariantType> valuePtr = output->second.getInternalValuePtr();
+		uaOutputArguments[i].dataType = valuePtr->type->typeId;
 
-		if(output->second.isArrayType()) {
-			// setup the array dimensions
-			uaOutputArguments[i].valueRank = 1;
-			uaOutputArguments[i].arrayDimensionsSize = value.arrayDimensionsSize;
-			UA_UInt32_copy(value.arrayDimensions, uaOutputArguments[i].arrayDimensions);
-		} else {
+		if(output->second.isScalar()) {
 			// scalar type
 			uaOutputArguments[i].valueRank = -1;
+		} else {
+			// setup the array dimensions
+			uaOutputArguments[i].valueRank = 1;
+			uaOutputArguments[i].arrayDimensionsSize = valuePtr->arrayDimensionsSize;
+			UA_UInt32_copy(valuePtr->arrayDimensions, uaOutputArguments[i].arrayDimensions);
 		}
-
-		// cleanup value copy
-		UA_Variant_deleteMembers(&value);
 
 		// increment i
 		i++;
@@ -396,13 +390,13 @@ bool GenericServer::createServerSpace()
 	return true;
 }
 
-OPCUA::StatusCode GenericServer::writeVariable(const std::string &nodeName, const OPCUA::ValueType &value, const unsigned short &namespaceId)
+OPCUA::StatusCode GenericServer::writeVariable(const std::string &nodeName, const OPCUA::Variant &value, const unsigned short &namespaceId)
 {
 #ifdef HAS_OPCUA
     NodeId nodeId(nodeName,namespaceId);
     UA_StatusCode status = UA_Server_writeValue(server,
     		*static_cast<const UA_NodeId*>(nodeId), // use const access to prevent memory leaks
-			*static_cast<const UA_Variant*>(value)  // use const access to prevent memory leaks
+			*value.getInternalValuePtr()
 	);
 	// check and return the status
 	if(status == UA_STATUSCODE_GOOD) {

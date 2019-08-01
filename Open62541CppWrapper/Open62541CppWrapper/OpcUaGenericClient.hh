@@ -27,15 +27,11 @@
 #include <condition_variable>
 
 #ifdef HAS_OPCUA
-	#ifdef UA_ENABLE_AMALGAMATION
-		#include <open62541.h>
-	#else
-		#include <open62541/client.h>
-	#endif
+	#include <open62541/client.h>
 #endif
 
 #include "OpcUaStatusCode.hh"
-#include "OpcUaValueType.hh"
+#include "OpcUaVariant.hh"
 #include "OpcUaNodeId.hh"
 
 namespace OPCUA {
@@ -68,12 +64,20 @@ private:
 	std::map<UA_UInt32, std::string> subscriptionsRegistry;
 	std::chrono::steady_clock::duration minSubscriptionInterval;
 
+	struct EventEntry {
+		UA_MonitoredItemCreateResult result;
+		UA_EventFilter filter;
+	};
+
+	// internal registry to store the root-node ID for activated events
+	std::map<UA_UInt32, EventEntry> eventRegistry;
+
 	// entityUpdate handling
 	mutable std::mutex entityUpdateMutex;
 	// entity update registry (key=EntityName, value=CondVar)
 	std::map<std::string, std::condition_variable> entityUpdateSignalRegistry;
 	// entity update value registry (key=EntityName, value=UpdateValue)
-	std::map<std::string, OPCUA::ValueType> entityUpdateValueRegistry;
+	std::map<std::string, OPCUA::Variant> entityUpdateValueRegistry;
 
 	/// simple discovery service checks if the given address has any endpoints (not really needed)
 	bool hasEndpoints(const std::string &address, const bool &display=true);
@@ -90,12 +94,11 @@ private:
 	 *  and the namespaceIndex (the second, optional attribute).
 	 *
 	 *  @param objectPath:		the element location within an object specified as a path (linux like path syntax)
-	 *  @param namespaceIndex:	the namespace-index used to create qualified names for the individual element names
 	 *
 	 *  @return the NodeId of the first matching element
 	 *  	- NodeId is set to UA_NODEID_NULL if the element could not be found (use UA_NodeId_isNill(result) to check for nill)
 	 */
-	NodeId browseObjectPath(const std::string &objectPath, const unsigned short namespaceIndex=1) const;
+	NodeId browseObjectPath(const std::string &objectPath) const;
 
 	/** method to find a sub-element of the given parentNodeId
 	 *
@@ -135,10 +138,12 @@ private:
 
 	/// internal upcall called from within the internal OPC UA upcall method, it propagates the call to the 
 	void handleEntity(const UA_UInt32 &subscriptionId, UA_DataValue *data);
+
+	// internal upcall to handle incoming events
+	void handleEventUpcall(const UA_UInt32 &eventId, const size_t &nEventFields, UA_Variant *eventFields);
 #endif
 
 protected:
-
 	/** this method creates a fast-access registry to an OPC UA variable identified by its browse-name
 	 *
 	 *  This method searches for an OPC UA variable within the server space, and if found:
@@ -195,7 +200,21 @@ protected:
 	virtual bool createClientSpace(const bool activateUpcalls=true);
 
 	/// overload this method in derived classes to individually handle value-updates for the respective variable
-	virtual void handleVariableValueUpdate(const std::string &variableBrowseName, const OPCUA::ValueType &value);
+	virtual void handleVariableValueUpdate(const std::string &variableBrowseName, const OPCUA::Variant &value);
+
+	//
+	/**
+	 * This method activates a generic event handler with a given filter-clause.
+	 * @param eventSelections is a list of event selection clauses used to reduce the number of communicated parameters
+	 * @returns the EventId (which can be used to deactivate the event again)
+	 */
+	unsigned int activateEvent(const std::vector<std::string> &eventSelections = {"Message", "Severity"});
+
+	// deactivates the given event
+	void deactivateEvent(const unsigned int &eventId);
+
+	/// overload this method in derived classes to individually handle events
+	virtual void handleEvent(const unsigned int &eventId, const std::map<std::string,OPCUA::Variant> &eventData);
 
 public:
 	GenericClient(const std::chrono::steady_clock::duration &minSubscriptionInterval = std::chrono::milliseconds(100));
@@ -204,13 +223,14 @@ public:
 	/** this method instantiates and connects the internal OPC UA Client
 	 *
 	 *  This method connects the internal OPC UA Client to the provided OPC UA Server URL.
+	 *  You can specify a full path using a Unix path syntax, e.g. "Server/ServerStatus"
 	 *
 	 *  @param address the OPC UA Server URL
-	 *  @param objectName optional parameter specifying the root object within the server space
+	 *  @param objectPath optional parameter specifying the root object within the server space
 	 *  @param activateUpcalls optional parameter that allows activation/deactivation of the upcall interface of this client
 	 *  @return OPCUA::StatusCode::ALL_OK on succes or OPCUA::StatusCode::ERROR_COMMUNICATION otherwise
 	 */
-	OPCUA::StatusCode connect(const std::string &address = "opc.tcp://localhost:4840", const std::string &objectName="", const bool activateUpcalls=true);
+	OPCUA::StatusCode connect(const std::string &address = "opc.tcp://localhost:4840", const std::string &objectPath="Server", const bool activateUpcalls=true);
 
 	/** this method disconnects the internal OPC UA Client (if it was connected before)
 	 *
@@ -247,7 +267,7 @@ public:
 	 *    - WRONG_ID : the variable with the given name is not available in the server
 	 *    - ERROR_COMMUNICATION : something unexpected went wrong while communicating
 	 */
-	OPCUA::StatusCode getVariableCurrentValue(const std::string &variableBrowseName, OPCUA::ValueType &value) const;
+	OPCUA::StatusCode getVariableCurrentValue(const std::string &variableBrowseName, OPCUA::Variant &value) const;
 
 	/** Generic Getter function that blocks until a new value-update of an OPC UA Variable arrives
 	 *
@@ -263,7 +283,7 @@ public:
 	 *    - WRONG_ID : the variable with the given name is not available in the server
 	 *    - ERROR_COMMUNICATION : something unexpected went wrong while communicating
 	 */
-	OPCUA::StatusCode getVariableNextValue(const std::string &variableBrowseName, OPCUA::ValueType &value);
+	OPCUA::StatusCode getVariableNextValue(const std::string &variableBrowseName, OPCUA::Variant &value);
 
 	/** Generic Setter function
 	 *
@@ -281,7 +301,7 @@ public:
 	 *    - WRONG_ID : the variable with the given name is not available in the server
 	 *    - ERROR_COMMUNICATION : something unexpected went wrong while communicating
 	 */
-	OPCUA::StatusCode setVariableValue(const std::string &entityName, const OPCUA::ValueType &value);
+	OPCUA::StatusCode setVariableValue(const std::string &entityName, const OPCUA::Variant &value);
 
 	/** Generic Caller function
 	 *
@@ -293,7 +313,7 @@ public:
 	 *
 	 *  @return status code		:OPCUA::StatusCode
 	 */
-	OPCUA::StatusCode callMethod(const std::string &methodName, const std::vector<OPCUA::ValueType> &inputArguments, std::vector<OPCUA::ValueType> &outputArguments);
+	OPCUA::StatusCode callMethod(const std::string &methodName, const std::vector<OPCUA::Variant> &inputArguments, std::vector<OPCUA::Variant> &outputArguments);
 };
 
 } /* namespace OPCUA */

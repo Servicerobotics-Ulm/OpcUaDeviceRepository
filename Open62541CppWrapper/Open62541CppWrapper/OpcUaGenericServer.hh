@@ -21,15 +21,11 @@
 #include <string>
 
 #ifdef HAS_OPCUA
-	#ifdef UA_ENABLE_AMALGAMATION
-		#include <open62541.h>
-	#else
-		#include <open62541/server.h>
-	#endif
+	#include <open62541/server.h>
 #endif
 
 #include "OpcUaStatusCode.hh"
-#include "OpcUaValueType.hh"
+#include "OpcUaVariant.hh"
 #include "OpcUaNodeId.hh"
 
 namespace OPCUA {
@@ -75,13 +71,13 @@ protected:
 	 *
 	 *  @return true if the variable has been created successfully of false otherwise
 	 */
-	bool addVariableNode(const std::string &nodeName, const OPCUA::ValueType &initialValue, const bool &readOnly=true, const unsigned short &namespaceId=1);
+	bool addVariableNode(const std::string &nodeName, const OPCUA::Variant &initialValue, const bool &readOnly=true, const unsigned short &namespaceId=1);
 
 	/** use this method from within createServerSpace() to add an OPC UA method to the internal server space
 	 *
 	 *  This method wraps the code to create and add a new OPC UA Method with its input and output arguments
 	 *  to the internally created rootObject. The Method's arguments are specified using a map where the keys denote the argument names and
-	 *  the values denote the data-types. Please note, that the ValueType parts are only used to identify the data-type of the according
+	 *  the values denote the data-types. Please note, that the Variant parts are only used to identify the data-type of the according
 	 *  Method attribute. If you additionally provide initial values, these values will be ignored as this is currently
 	 *  not supported by the underlying library.
 	 *
@@ -93,8 +89,8 @@ protected:
 	 *  @return true if the OPC UA Method has been created successfully of false otherwise
 	 */
 	bool addMethodNode(const std::string &methodBrowseName,
-			const std::map<std::string,ValueType> &inputArguments,
-			const std::map<std::string,ValueType> &outputArguments,
+			const std::map<std::string,Variant> &inputArguments,
+			const std::map<std::string,Variant> &outputArguments,
 			const unsigned short &namespaceId=1);
 
 	/** overload and implement this method in derived classes to implement the server space
@@ -120,7 +116,7 @@ protected:
 	 *  @param value output argument receives the new value of the OPC UA variable
 	 *
 	 */
-	virtual void handleOnRead(const std::string &browseName, ValueType &value);
+	virtual void handleOnRead(const std::string &browseName, Variant &value);
 
 	/** overload this method to get notified about write requests from a remote client for the provided variable name
 	 *
@@ -131,7 +127,7 @@ protected:
 	 *  @param value the new value of the OPC UA variable
 	 *
 	 */
-	virtual void handleOnWrite(const std::string &browseName, const ValueType &value);
+	virtual void handleOnWrite(const std::string &browseName, const Variant &value);
 
 	/** overload this method to get notified about remote method calls from a remote client for the provided OPC UA Method name
 	 *
@@ -143,7 +139,7 @@ protected:
 	 *  @param outputs a reference to a vector to store the resulting output-argument-values
 	 *
 	 */
-	virtual void handleMethodCall(const std::string &browseName, const std::vector<ValueType> &inputs, std::vector<ValueType> &outputs);
+	virtual void handleMethodCall(const std::string &browseName, const std::vector<Variant> &inputs, std::vector<Variant> &outputs);
 
 public:
 	/** default constructor requires at the minimum a name for the root object that is automatically created
@@ -175,7 +171,7 @@ public:
 	 *  @param value the new value for the OPC UA Variable
 	 *  @param namespaceId an optional namespace index (in case the variable is in a different index than 1)
 	 */
-	OPCUA::StatusCode writeVariable(const std::string &browseName, const OPCUA::ValueType &value, const unsigned short &namespaceId=1);
+	OPCUA::StatusCode writeVariable(const std::string &browseName, const OPCUA::Variant &value, const unsigned short &namespaceId=1);
 
 	/** this method executes the internal OPC-UA server until CTRL-C is pressed
 	 *

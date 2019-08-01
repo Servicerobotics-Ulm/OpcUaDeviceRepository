@@ -63,10 +63,10 @@ bool ProductionStation::createServerSpace()
 	
 	
 	// add the method loadbox
-	std::map<std::string, OPCUA::ValueType> loadboxInputArguments;
+	std::map<std::string, OPCUA::Variant> loadboxInputArguments;
 	loadboxInputArguments["timeout"] = 0;
 	
-	std::map<std::string, OPCUA::ValueType> loadboxOutputArguments;
+	std::map<std::string, OPCUA::Variant> loadboxOutputArguments;
 	loadboxOutputArguments["result"] = std::string();
 	
 	if(addMethodNode("loadbox", loadboxInputArguments, loadboxOutputArguments) != true) {
@@ -75,10 +75,10 @@ bool ProductionStation::createServerSpace()
 	}
 	
 	// add the method start_unloading
-	std::map<std::string, OPCUA::ValueType> start_unloadingInputArguments;
+	std::map<std::string, OPCUA::Variant> start_unloadingInputArguments;
 	start_unloadingInputArguments["XtimeoutX"] = 0;
 	
-	std::map<std::string, OPCUA::ValueType> start_unloadingOutputArguments;
+	std::map<std::string, OPCUA::Variant> start_unloadingOutputArguments;
 	start_unloadingOutputArguments["result"] = std::string();
 	
 	if(addMethodNode("start_unloading", start_unloadingInputArguments, start_unloadingOutputArguments) != true) {
@@ -87,10 +87,10 @@ bool ProductionStation::createServerSpace()
 	}
 	
 	// add the method stop_unloading
-	std::map<std::string, OPCUA::ValueType> stop_unloadingInputArguments;
+	std::map<std::string, OPCUA::Variant> stop_unloadingInputArguments;
 	stop_unloadingInputArguments["XtimeoutX"] = 0;
 	
-	std::map<std::string, OPCUA::ValueType> stop_unloadingOutputArguments;
+	std::map<std::string, OPCUA::Variant> stop_unloadingOutputArguments;
 	stop_unloadingOutputArguments["result"] = std::string();
 	
 	if(addMethodNode("stop_unloading", stop_unloadingInputArguments, stop_unloadingOutputArguments) != true) {
@@ -101,7 +101,7 @@ bool ProductionStation::createServerSpace()
 	return true;
 }
 
-void ProductionStation::handleOnRead(const std::string &browseName, ValueType &value)
+void ProductionStation::handleOnRead(const std::string &browseName, Variant &value)
 {
 	if(browseName == "isBoxPresent") {
 		bool isBoxPresent;
@@ -126,7 +126,7 @@ void ProductionStation::handleOnRead(const std::string &browseName, ValueType &v
 	}
 }
 
-void ProductionStation::handleOnWrite(const std::string &browseName, const ValueType &value)
+void ProductionStation::handleOnWrite(const std::string &browseName, const Variant &value)
 {
 	// propagate the write calls to respective upcalls (only if write access is activated)
 	if(browseName == "LED_RED") {
@@ -138,7 +138,7 @@ void ProductionStation::handleOnWrite(const std::string &browseName, const Value
 	}
 }
 
-void ProductionStation::handleMethodCall(const std::string &browseName, const std::vector<ValueType> &inputs, std::vector<ValueType> &outputs)
+void ProductionStation::handleMethodCall(const std::string &browseName, const std::vector<Variant> &inputs, std::vector<Variant> &outputs)
 {
 	if(browseName == "loadbox") {
 		// expecting an input vector of size 1

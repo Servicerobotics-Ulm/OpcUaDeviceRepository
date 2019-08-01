@@ -137,7 +137,7 @@ bool Joystick::createServerSpace()
 	return true;
 }
 
-void Joystick::handleOnRead(const std::string &browseName, ValueType &value)
+void Joystick::handleOnRead(const std::string &browseName, Variant &value)
 {
 	if(browseName == "Xpos") {
 		int Xpos;
@@ -207,12 +207,12 @@ void Joystick::handleOnRead(const std::string &browseName, ValueType &value)
 	}
 }
 
-void Joystick::handleOnWrite(const std::string &browseName, const ValueType &value)
+void Joystick::handleOnWrite(const std::string &browseName, const Variant &value)
 {
 	// propagate the write calls to respective upcalls (only if write access is activated)
 }
 
-void Joystick::handleMethodCall(const std::string &browseName, const std::vector<ValueType> &inputs, std::vector<ValueType> &outputs)
+void Joystick::handleMethodCall(const std::string &browseName, const std::vector<Variant> &inputs, std::vector<Variant> &outputs)
 {
 }
 

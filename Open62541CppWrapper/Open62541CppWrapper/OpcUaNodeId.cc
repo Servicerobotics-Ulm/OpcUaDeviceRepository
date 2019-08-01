@@ -30,7 +30,7 @@ NodeId::NodeId()
 {
 #ifdef HAS_OPCUA
 	UA_NodeId_init(&_id);
-	_id= UA_NODEID_NULL;
+	_id = UA_NODEID_NULL;
 #endif
 }
 
@@ -72,7 +72,12 @@ NodeId::operator const NodeId::NativeIdType*() const
 	return &_id;
 }
 
-NodeId::operator NodeId::NativeIdType() const
+NodeId::operator const NodeId::NativeIdType&() const
+{
+	return _id;
+}
+
+NodeId::NativeIdType NodeId::getNativeIdCopy() const
 {
 #ifdef HAS_OPCUA
 	UA_NodeId id;
@@ -138,6 +143,24 @@ std::string NodeId::getSimpleName() const
 		return std::string((const char*)_id.identifier.string.data, _id.identifier.string.length);
 	} else if(isNumericType()) {
 		std::stringstream ss;
+		ss << _id.identifier.numeric;
+		return ss.str();
+	}
+	return std::string();
+#else
+	return _id;
+#endif
+}
+
+std::string NodeId::getFullName() const
+{
+#ifdef HAS_OPCUA
+	std::stringstream ss;
+	ss << _id.namespaceIndex << ":";
+	if(isStringType()==true) {
+		ss << std::string((const char*)_id.identifier.string.data, _id.identifier.string.length);
+		return ss.str();
+	} else if(isNumericType()) {
 		ss << _id.identifier.numeric;
 		return ss.str();
 	}

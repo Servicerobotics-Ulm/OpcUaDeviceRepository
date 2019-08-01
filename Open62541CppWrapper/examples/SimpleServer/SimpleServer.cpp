@@ -17,8 +17,8 @@ private:
 	bool cancelled;
 
 	virtual void handleMethodCall(const std::string &browseName,
-			const std::vector<OPCUA::ValueType> &inputs,
-			std::vector<OPCUA::ValueType> &outputs) override
+			const std::vector<OPCUA::Variant> &inputs,
+			std::vector<OPCUA::Variant> &outputs) override
 	{
 		std::cout << "CallMethod(" << browseName << ", ";
 		for(size_t i=0; i<inputs.size(); ++i) {
@@ -67,14 +67,15 @@ public:
 		}
 
 		// add a method
-		std::map<std::string, OPCUA::ValueType> inputArguments;
+		std::map<std::string, OPCUA::Variant> inputArguments;
 		inputArguments["IntInput1"] = 0;
 		inputArguments["StringInput2"] = std::string("");
 
-		std::map<std::string, OPCUA::ValueType> outputArguments;
+		std::map<std::string, OPCUA::Variant> outputArguments;
 		outputArguments["Result"] = std::string("");
 
 		if(addMethodNode("MyMethod", inputArguments, outputArguments) != true) {
+			std::cout << "failed adding MyMethod" << std::endl;
 			return false;
 		}
 		return true;

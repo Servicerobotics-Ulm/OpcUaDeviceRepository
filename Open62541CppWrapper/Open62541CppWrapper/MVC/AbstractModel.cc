@@ -22,9 +22,6 @@ AbstractModel::AbstractModel()
 :	changed_values(false)
 {  }
 
-AbstractModel::~AbstractModel()
-{  }
-
 void AbstractModel::attach(AbstractModelObserver *observer) {
 	std::unique_lock<std::mutex> lock(registry_mutex);
 	registry.insert(observer);
@@ -37,9 +34,8 @@ void AbstractModel::detach(AbstractModelObserver *observer) {
 
 void AbstractModel::notify() {
 	std::unique_lock<std::mutex> lock(registry_mutex);
-	auto it = registry.begin();
-	for(; it!=registry.end(); it++) {
-		(*it)->update();
+	for(auto &entry: registry) {
+		entry->update();
 	}
 }
 
