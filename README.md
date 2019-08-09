@@ -13,4 +13,4 @@ This repository is maintained by Servicerobotik Ulm. For more information see:
   * [**CMake**](https://cmake.org/) min. version **3.5**
   * A C++ compiler supporting the **C++ 14** standard
 
-Further dependencies and instructions are provided in the READMEs of the related device-subfolders.
+Further dependencies and instructions are provided in the READMEs of the individual device-subfolders.
