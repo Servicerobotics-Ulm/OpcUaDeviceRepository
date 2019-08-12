@@ -1,6 +1,6 @@
 # OPC UA Joystick Device
 
-This Device implementation provides an OPC UA server that uses the Linux Joystick library to access any Linux supported joystick device. The default hardware device path is "/dev/input/js0". See the Class LinuxJoystickDriverModel that allows changing this path as a constructor argument.
+This Device implementation provides an OPC UA server that uses the [Linux Joystick API](https://www.kernel.org/doc/html/latest/input/joydev/joystick-api.html) to access any Linux supported joystick device. The default hardware device path is "/dev/input/js0". See the Class LinuxJoystickDriverModel that allows changing this path as a constructor argument.
 
 ## The OPC UA Information Model
 
